@@ -24,7 +24,7 @@ node dist/index.js # 啟動最小進程
 ```
 src/
   mcp/          MCP Client 連線層（T002 ✅）：Envelope 解析、重試、breaker
-  gate/         資料新鮮度守門（T003）
+  gate/        資料新鮮度守門（T003 ✅）：降級狀態機 NORMAL/STALE/DEGRADED/LOCKOUT
   bias/         盤前多空傾向鎖定（T016）
   engine/       策略引擎（T017/T018）
   briefing/     Tactical Briefing 產生器（T019）
@@ -61,10 +61,21 @@ const env = await mcp.call('get_intraday_vwap', { symbol: '2308' });
 全部變數定義於 `src/config/env_defaults.ts`（§17.1 唯一真值），範例見 `.env.example`。
 覆寫方式：`SCORE_THRESHOLD=90 node dist/index.js`。
 
+## Freshness Gate 使用方式
+
+```ts
+import { FreshnessGate } from './src/gate/freshness_gate.js';
+const gate = new FreshnessGate({ stalenessMaxSec: Number(process.env.DATA_STALENESS_MAX_SEC) });
+const env = await mcp.call('get_intraday_vwap', { symbol: '2308' });
+const r = gate.check(env, 'INTRADAY_SIGNAL', { symbol: '2308' });
+if (!r.passed) { /* 降級處理：STALE 停訊 / DEGRADED 停新訊 / LOCKOUT 全停 */ }
+```
+
 ## 任務狀態
 
 - [x] T001 專案初始化與設定骨架
 - [x] T002 MCP Client 連線層
-- [ ] T003+ 依任務書依序實作
+- [x] T003 資料新鮮度守門
+- [ ] T004+ 依任務書依序實作
 
 規格書：`~/tasks/tw-quant-daybrain/tw-quant-daybrain-v2_1.md`
