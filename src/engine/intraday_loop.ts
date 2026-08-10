@@ -210,7 +210,7 @@ export class IntradayLoop {
   }
 
   /** 判定並觸發 Phase 3 事件（§4 Phase 3，每次 tick 檢查） */
-  checkPhase3(): void {
+  checkPhase3(now: Date = this.nowFn()): void {
     const hhmm = this.hhmm();
     for (const t of PHASE3_TRIGGERS) {
       if (hhmm >= t.time && !this.firedPhase3.has(t.event)) {
@@ -220,7 +220,7 @@ export class IntradayLoop {
           phase: 3,
           trigger: t.event,
           detail: t.message,
-        });
+        }, now);
       }
     }
   }
@@ -231,12 +231,12 @@ export class IntradayLoop {
     if (perTick.has(key)) return null;
     perTick.add(key);
     const env = await this.call('get_intraday_vwap', { symbol });
-    const g = this.gate.check(env, 'INTRADAY_SIGNAL', { symbol });
+    const g = this.gate.check(env, 'INTRADAY_SIGNAL', { symbol, now: this.nowFn() });
     if (!g.passed) {
       this.events.write('freshness_gate_fail', {
         symbol,
         cause: g.cause ?? 'gate_fail',
-      });
+      }, this.nowFn());
       return null;
     }
     return env.data as unknown as VwapResult;
@@ -247,12 +247,12 @@ export class IntradayLoop {
     if (perTick.has(key)) return null;
     perTick.add(key);
     const env = await this.call('detect_volume_surge', { symbol });
-    const g = this.gate.check(env, 'INTRADAY_SIGNAL', { symbol });
+    const g = this.gate.check(env, 'INTRADAY_SIGNAL', { symbol, now: this.nowFn() });
     if (!g.passed) {
       this.events.write('freshness_gate_fail', {
         symbol,
         cause: g.cause ?? 'gate_fail',
-      });
+      }, this.nowFn());
       return null;
     }
     return env.data as unknown as VolumeSurgeResult;
@@ -287,7 +287,7 @@ export class IntradayLoop {
       // 過期重評：確認後 5 分鐘未觸發 → 重新評分
       const expired = this.ticker.isExpired(symbol, this.signalExpiryMin, now);
       if (expired) {
-        this.events.write('signal_expired', { signal_id: this.makeSignalId(now), symbol });
+        this.events.write('signal_expired', { signal_id: this.makeSignalId(now), symbol }, now);
         continue;
       }
 
@@ -297,7 +297,7 @@ export class IntradayLoop {
         const ageSec = (now.getTime() - pendingSig.confirmedTs.getTime()) / 1000;
         if (ageSec <= this.failedBreakoutWindowSec && vwapRes.current_price !== undefined && vwapRes.current_price < vwapRes.vwap) {
           this.pending.delete(symbol);
-          this.events.write('failed_breakout', { signal_id: pendingSig.signal_id, symbol });
+          this.events.write('failed_breakout', { signal_id: pendingSig.signal_id, symbol }, now);
           continue;
         }
         if (ageSec > this.failedBreakoutWindowSec) {
@@ -412,7 +412,7 @@ export class IntradayLoop {
         symbol: a.symbol,
         score: a.score,
         grade: a.grade,
-      });
+      }, this.nowFn());
     }
 
     return advices;
@@ -423,7 +423,7 @@ export class IntradayLoop {
     const p = this.pending.get(symbol);
     if (p) {
       this.pending.delete(symbol);
-      this.events.write('failed_breakout', { signal_id: p.signal_id, symbol });
+      this.events.write('failed_breakout', { signal_id: p.signal_id, symbol }, this.nowFn());
     }
   }
 }

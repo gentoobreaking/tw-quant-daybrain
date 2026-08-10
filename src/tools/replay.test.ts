@@ -23,7 +23,7 @@ function setupLogger(events: DayBrainEvent[]): { logger: EventLogger; date: stri
   const dir = mkdtempSync(join(tmpdir(), 't012-'));
   const logger = new EventLogger(dir);
   const date = '2026-08-10';
-  for (const e of events) logger.write(e.type, e);
+  for (const e of events) logger.write(e.type, e, new Date(e.ts));
   return { logger, date };
 }
 

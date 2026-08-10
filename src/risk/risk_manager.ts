@@ -496,7 +496,7 @@ export class RiskManager {
       symbol: p.symbol,
       shares: p.shares,
       entry_price: p.entry_price,
-    });
+    }, this.nowFn());
     this.daily.tradeCount += 1;
     this.repo.save(p);
     return true;
@@ -571,7 +571,7 @@ export class RiskManager {
       position_id: p.position_id,
       reason,
       detail: extra.reason,
-    });
+    }, this.nowFn());
     this.transition(p, 'CLOSED', { fromOverride: prev });
 
     // 每日風控（§11.4）
@@ -590,7 +590,7 @@ export class RiskManager {
     if (this.daily.realizedPnl <= -this.equity * (this.cfg.maxDailyLossPct / 100)) {
       if (!this.daily.dailyLockout) {
         this.daily.dailyLockout = true;
-        this.events.write('daily_lockout', { reason: `日虧損達 -${this.cfg.maxDailyLossPct}% 權益` });
+        this.events.write('daily_lockout', { reason: `日虧損達 -${this.cfg.maxDailyLossPct}% 權益` }, this.nowFn());
       }
     }
     this.repo.save(p);
@@ -622,6 +622,6 @@ export class RiskManager {
       position_id: p.position_id,
       from: prev,
       to,
-    });
+    }, this.nowFn());
   }
 }

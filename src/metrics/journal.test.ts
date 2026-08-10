@@ -233,10 +233,10 @@ test('週滾動：單週 Hit Rate<35% 但前週正常 → 不觸發暫停', () =
 test('整合：EventLogger 寫入 → loadDay → computeJournalEntry', () => {
   const dir = mkdtempSync(join(tmpdir(), 't010-'));
   const logger = new EventLogger(dir);
-  logger.write('signal_issued', { ts: '2026-08-10T09:30:00+08:00', signal_id: 's1', symbol: '2308', score: 80 });
-  logger.write('signal_triggered', { ts: '2026-08-10T09:31:00+08:00', signal_id: 's1' });
-  logger.write('position_opened', { ts: '2026-08-10T09:32:00+08:00', position_id: 'P1', symbol: '2308', signal_id: 's1' });
-  logger.write('position_closed', { ts: '2026-08-10T09:50:00+08:00', position_id: 'P1', reason: 'TAKE_PROFIT', pnlNtd: 3_000 });
+  logger.write('signal_issued', { signal_id: 's1', symbol: '2308', score: 80 }, new Date('2026-08-10T09:30:00+08:00'));
+  logger.write('signal_triggered', { signal_id: 's1' }, new Date('2026-08-10T09:31:00+08:00'));
+  logger.write('position_opened', { position_id: 'P1', symbol: '2308', signal_id: 's1' }, new Date('2026-08-10T09:32:00+08:00'));
+  logger.write('position_closed', { position_id: 'P1', reason: 'TAKE_PROFIT', pnlNtd: 3_000 }, new Date('2026-08-10T09:50:00+08:00'));
 
   const events = logger.loadDay('2026-08-10', { silent: true });
   const j = computeJournalEntry('2026-08-10', '2.1.0', events);

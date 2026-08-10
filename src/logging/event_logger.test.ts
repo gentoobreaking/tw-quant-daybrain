@@ -218,9 +218,16 @@ test('loadChain：signal_id / position_id 串接（signal_issued → position_op
 test('EventLogger 與 JsonLogger 共存（不同檔案），事件檔名固定', () => {
   const { dir, logger, cleanup } = mkLogger();
   try {
-    logger.write('system_shutdown', { reason: 'test' });
-    // 事件檔存在且格式為 .events.jsonl
-    assert.ok(existsSync(join(dir, '2026-08-10.events.jsonl')));
+    const now = new Date();
+    logger.write('system_shutdown', { reason: 'test' }, now);
+    // 事件檔存在且格式為 .events.jsonl（以 Taipei 今天日期命名）
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Taipei',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(now);
+    assert.ok(existsSync(join(dir, `${today}.events.jsonl`)));
   } finally {
     cleanup();
   }

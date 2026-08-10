@@ -40,7 +40,7 @@ function envFixture(data: unknown, lineage: Record<string, unknown> = {}): Envel
     _lineage: {
       source: 'TWSE',
       freshness: 'REALTIME_INTRADAY',
-      fetched_at: new Date().toISOString(),
+      fetched_at: '2026-08-10T10:00:00+08:00', // 固定 mock 日期（跨日安全）
       is_cached: false,
       ...lineage,
     },
@@ -78,7 +78,7 @@ function shortSurge(): { data: unknown } {
 function setup(overrides: {
   watchlist: string[];
   startAt?: string;
-  fixtures?: (tool: string, symbol: string) => Envelope;
+  fixtures?: (tool: string, symbol: string, now: Date) => Envelope;
   briefing?: BriefingProvider;
   priority?: PriorityEngine;
   loop?: Partial<ConstructorParameters<typeof IntradayLoop>[0]>;
@@ -116,7 +116,7 @@ function setup(overrides: {
   const call: McpCallFn = async (tool, args) => {
     const symbol = String(args.symbol ?? '');
     calls.push({ tool, symbol });
-    if (overrides.fixtures) return overrides.fixtures(tool, symbol);
+    if (overrides.fixtures) return overrides.fixtures(tool, symbol, nowFn());
     if (tool === 'get_intraday_vwap') {
       return envFixture(longVwap().data);
     }
@@ -248,11 +248,11 @@ test('假突破回收：確認後 3 分鐘內回落 VWAP 下方 → failed_break
   let price = 106;
   const { loop, events, current } = setup({
     watchlist: ['2308'],
-    fixtures: (tool) => {
+    fixtures: (tool, _symbol, now) => {
       if (tool === 'get_intraday_vwap') {
-        return envFixture({ symbol: '2308', vwap: 102, high: 105, low: 99, current_price: price });
+        return envFixture({ symbol: '2308', vwap: 102, high: 105, low: 99, current_price: price }, { fetched_at: now.toISOString() });
       }
-      return envFixture(longSurge().data);
+      return envFixture(longSurge().data, { fetched_at: now.toISOString() });
     },
   });
   await loop.tick();

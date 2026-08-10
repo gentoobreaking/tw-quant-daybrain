@@ -1,0 +1,661 @@
+{
+  "date": "2026-08-10",
+  "scoring_version": "2.1.0",
+  "scenario": "爆量突破 → 觸發 → 停利（多頭日）",
+  "phases": [
+    {
+      "phase": 0,
+      "at": "08:15:00",
+      "tools": [
+        {
+          "tool": "get_market_summary",
+          "args": {},
+          "result": {
+            "data": {},
+            "_lineage": {
+              "source": "TWSE",
+              "freshness": "POST_MARKET_TODAY",
+              "fetched_at": "2026-08-09T14:30:00+08:00"
+            }
+          }
+        },
+        {
+          "tool": "get_abnormal_trading",
+          "args": {},
+          "result": {
+            "data": {
+              "stocks": []
+            },
+            "_lineage": {
+              "source": "TWSE",
+              "freshness": "POST_MARKET_TODAY",
+              "fetched_at": "2026-08-09T14:30:00+08:00"
+            }
+          }
+        },
+        {
+          "tool": "get_futures_daily_ohlc",
+          "args": {},
+          "result": {
+            "data": {},
+            "_lineage": {
+              "source": "TWSE",
+              "freshness": "POST_MARKET_TODAY",
+              "fetched_at": "2026-08-09T14:30:00+08:00"
+            }
+          }
+        },
+        {
+          "tool": "get_institutional_investors",
+          "args": {},
+          "result": {
+            "data": {
+              "date": "2026-08-10",
+              "foreign_net": 12345,
+              "stocks": []
+            },
+            "_lineage": {
+              "source": "TWSE",
+              "freshness": "POST_MARKET_TODAY",
+              "fetched_at": "2026-08-09T14:30:00+08:00"
+            }
+          }
+        },
+        {
+          "tool": "get_major_announcements",
+          "args": {},
+          "result": {
+            "data": {
+              "announcements": [
+                {
+                  "symbol": "2308",
+                  "title": "月營收創高",
+                  "date": "2026-08-10"
+                }
+              ]
+            },
+            "_lineage": {
+              "source": "TWSE",
+              "freshness": "POST_MARKET_TODAY",
+              "fetched_at": "2026-08-09T14:30:00+08:00"
+            }
+          }
+        },
+        {
+          "tool": "scan_daytrade_eligibility",
+          "args": {},
+          "result": {
+            "data": {
+              "symbol": "2308",
+              "eligible": true,
+              "risk_status": "NORMAL",
+              "is_attention": false,
+              "is_disposition": false
+            },
+            "_lineage": {
+              "source": "TWSE",
+              "freshness": "POST_MARKET_TODAY",
+              "fetched_at": "2026-08-09T14:30:00+08:00"
+            }
+          }
+        },
+        {
+          "tool": "get_stock_daily_kline",
+          "args": {},
+          "result": {
+            "data": {
+              "symbol": "2308",
+              "period": "day",
+              "candles": [
+                {
+                  "timestamp": "2026-08-07",
+                  "open": 100,
+                  "high": 105,
+                  "low": 99,
+                  "close": 104,
+                  "volume": 50000
+                }
+              ]
+            },
+            "_lineage": {
+              "source": "TWSE",
+              "freshness": "POST_MARKET_TODAY",
+              "fetched_at": "2026-08-09T14:30:00+08:00"
+            }
+          }
+        },
+        {
+          "tool": "set_active_watchlist",
+          "args": {},
+          "result": {
+            "data": {
+              "accepted": true,
+              "count": 2
+            },
+            "_lineage": {
+              "source": "TWSE",
+              "freshness": "POST_MARKET_TODAY",
+              "fetched_at": "2026-08-09T14:30:00+08:00"
+            }
+          }
+        },
+        {
+          "tool": "get_pre_market_quote",
+          "args": {},
+          "result": {
+            "data": {},
+            "_lineage": {
+              "source": "TWSE",
+              "freshness": "POST_MARKET_TODAY",
+              "fetched_at": "2026-08-09T14:30:00+08:00"
+            }
+          }
+        },
+        {
+          "tool": "get_taifex_night",
+          "args": {},
+          "result": {
+            "data": {},
+            "_lineage": {
+              "source": "TWSE",
+              "freshness": "POST_MARKET_TODAY",
+              "fetched_at": "2026-08-09T14:30:00+08:00"
+            }
+          }
+        },
+        {
+          "tool": "get_us_market",
+          "args": {},
+          "result": {
+            "data": {},
+            "_lineage": {
+              "source": "TWSE",
+              "freshness": "POST_MARKET_TODAY",
+              "fetched_at": "2026-08-09T14:30:00+08:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "phase": 1,
+      "at": "08:30:00",
+      "tools": [
+        {
+          "tool": "get_institutional_investors",
+          "args": {},
+          "result": {
+            "data": {
+              "date": "2026-08-10",
+              "foreign_net": 12345,
+              "stocks": [
+                {
+                  "symbol": "2308",
+                  "foreign_net": 3200,
+                  "investment_trust_net": 150,
+                  "dealer_net": -80
+                },
+                {
+                  "symbol": "2317",
+                  "foreign_net": 2100,
+                  "investment_trust_net": 60,
+                  "dealer_net": 40
+                }
+              ]
+            },
+            "_lineage": {
+              "source": "TWSE",
+              "freshness": "POST_MARKET_TODAY",
+              "fetched_at": "2026-08-10T08:25:00+08:00"
+            }
+          }
+        },
+        {
+          "tool": "get_abnormal_trading",
+          "args": {},
+          "result": {
+            "data": {
+              "stocks": [
+                {
+                  "symbol": "2308",
+                  "reason": "成交量異常"
+                }
+              ]
+            },
+            "_lineage": {
+              "source": "TWSE",
+              "freshness": "POST_MARKET_TODAY",
+              "fetched_at": "2026-08-09T14:30:00+08:00"
+            }
+          }
+        },
+        {
+          "tool": "get_major_announcements",
+          "args": {},
+          "result": {
+            "data": {
+              "announcements": [
+                {
+                  "symbol": "2308",
+                  "title": "月營收創高",
+                  "date": "2026-08-10"
+                }
+              ]
+            },
+            "_lineage": {
+              "source": "MOPS",
+              "freshness": "POST_MARKET_TODAY",
+              "fetched_at": "2026-08-10T08:25:00+08:00"
+            }
+          }
+        },
+        {
+          "tool": "scan_daytrade_eligibility",
+          "args": {
+            "symbol": "2308"
+          },
+          "result": {
+            "data": {
+              "symbol": "2308",
+              "eligible": true,
+              "risk_status": "NORMAL",
+              "is_attention": false,
+              "is_disposition": false
+            },
+            "_lineage": {
+              "source": "TWSE",
+              "freshness": "POST_MARKET_TODAY",
+              "fetched_at": "2026-08-10T08:25:00+08:00"
+            }
+          }
+        },
+        {
+          "tool": "scan_daytrade_eligibility",
+          "args": {
+            "symbol": "2317"
+          },
+          "result": {
+            "data": {
+              "symbol": "2317",
+              "eligible": true,
+              "risk_status": "NORMAL",
+              "is_attention": false,
+              "is_disposition": false
+            },
+            "_lineage": {
+              "source": "TWSE",
+              "freshness": "POST_MARKET_TODAY",
+              "fetched_at": "2026-08-10T08:25:00+08:00"
+            }
+          }
+        },
+        {
+          "tool": "get_stock_daily_kline",
+          "args": {
+            "symbol": "2308"
+          },
+          "result": {
+            "data": {
+              "symbol": "2308",
+              "period": "day",
+              "candles": [
+                {
+                  "timestamp": "2026-08-07",
+                  "open": 100,
+                  "high": 105,
+                  "low": 99,
+                  "close": 104,
+                  "volume": 50000
+                }
+              ]
+            },
+            "_lineage": {
+              "source": "TWSE",
+              "freshness": "HISTORICAL",
+              "fetched_at": "2026-08-10T08:26:00+08:00",
+              "data_date": "2026-08-07"
+            }
+          }
+        },
+        {
+          "tool": "get_stock_daily_kline",
+          "args": {
+            "symbol": "2317"
+          },
+          "result": {
+            "data": {
+              "symbol": "2317",
+              "period": "day",
+              "candles": [
+                {
+                  "timestamp": "2026-08-07",
+                  "open": 100,
+                  "high": 102,
+                  "low": 98,
+                  "close": 101,
+                  "volume": 40000
+                }
+              ]
+            },
+            "_lineage": {
+              "source": "TWSE",
+              "freshness": "HISTORICAL",
+              "fetched_at": "2026-08-10T08:26:00+08:00",
+              "data_date": "2026-08-07"
+            }
+          }
+        },
+        {
+          "tool": "set_active_watchlist",
+          "args": {
+            "symbols": [
+              "2308",
+              "2317"
+            ]
+          },
+          "result": {
+            "data": {
+              "accepted": true,
+              "count": 2
+            },
+            "_lineage": {
+              "source": "TWSE",
+              "freshness": "REALTIME_INTRADAY",
+              "fetched_at": "2026-08-10T08:27:00+08:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "phase": 2,
+      "at": "09:00:00",
+      "ticks": [
+        {
+          "at": "09:30:00",
+          "tools": [
+            {
+              "tool": "get_intraday_vwap",
+              "args": {
+                "symbol": "2308"
+              },
+              "result": {
+                "data": {
+                  "symbol": "2308",
+                  "vwap": 104.5,
+                  "high": 106.5,
+                  "low": 103.8,
+                  "current_price": 105.8
+                },
+                "_lineage": {
+                  "source": "TWSE",
+                  "freshness": "REALTIME_INTRADAY",
+                  "fetched_at": "2026-08-10T09:30:00+08:00"
+                }
+              }
+            },
+            {
+              "tool": "detect_volume_surge",
+              "args": {
+                "symbol": "2308"
+              },
+              "result": {
+                "data": {
+                  "symbol": "2308",
+                  "volumeSurgeRatio": 3.2,
+                  "volumeSurgeType": "BULLISH_SURGE",
+                  "is_surge": true
+                },
+                "_lineage": {
+                  "source": "TWSE",
+                  "freshness": "REALTIME_INTRADAY",
+                  "fetched_at": "2026-08-10T09:30:00+08:00"
+                }
+              }
+            },
+            {
+              "tool": "get_intraday_vwap",
+              "args": {
+                "symbol": "2317"
+              },
+              "result": {
+                "data": {
+                  "symbol": "2317",
+                  "vwap": 100.5,
+                  "high": 101.5,
+                  "low": 99.8,
+                  "current_price": 100.8
+                },
+                "_lineage": {
+                  "source": "TWSE",
+                  "freshness": "REALTIME_INTRADAY",
+                  "fetched_at": "2026-08-10T09:30:00+08:00"
+                }
+              }
+            },
+            {
+              "tool": "detect_volume_surge",
+              "args": {
+                "symbol": "2317"
+              },
+              "result": {
+                "data": {
+                  "symbol": "2317",
+                  "volumeSurgeRatio": 1.2,
+                  "volumeSurgeType": "NEUTRAL",
+                  "is_surge": false
+                },
+                "_lineage": {
+                  "source": "TWSE",
+                  "freshness": "REALTIME_INTRADAY",
+                  "fetched_at": "2026-08-10T09:30:00+08:00"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "at": "09:30:10",
+          "tools": [
+            {
+              "tool": "get_intraday_vwap",
+              "args": {
+                "symbol": "2308"
+              },
+              "result": {
+                "data": {
+                  "symbol": "2308",
+                  "vwap": 104.8,
+                  "high": 106.0,
+                  "low": 103.8,
+                  "current_price": 106.2
+                },
+                "_lineage": {
+                  "source": "TWSE",
+                  "freshness": "REALTIME_INTRADAY",
+                  "fetched_at": "2026-08-10T09:30:10+08:00"
+                }
+              }
+            },
+            {
+              "tool": "detect_volume_surge",
+              "args": {
+                "symbol": "2308"
+              },
+              "result": {
+                "data": {
+                  "symbol": "2308",
+                  "volumeSurgeRatio": 3.5,
+                  "volumeSurgeType": "BULLISH_SURGE",
+                  "is_surge": true
+                },
+                "_lineage": {
+                  "source": "TWSE",
+                  "freshness": "REALTIME_INTRADAY",
+                  "fetched_at": "2026-08-10T09:30:10+08:00"
+                }
+              }
+            },
+            {
+              "tool": "get_intraday_vwap",
+              "args": {
+                "symbol": "2317"
+              },
+              "result": {
+                "data": {
+                  "symbol": "2317",
+                  "vwap": 100.5,
+                  "high": 101.5,
+                  "low": 99.8,
+                  "current_price": 100.8
+                },
+                "_lineage": {
+                  "source": "TWSE",
+                  "freshness": "REALTIME_INTRADAY",
+                  "fetched_at": "2026-08-10T09:30:10+08:00"
+                }
+              }
+            },
+            {
+              "tool": "detect_volume_surge",
+              "args": {
+                "symbol": "2317"
+              },
+              "result": {
+                "data": {
+                  "symbol": "2317",
+                  "volumeSurgeRatio": 1.2,
+                  "volumeSurgeType": "NEUTRAL",
+                  "is_surge": false
+                },
+                "_lineage": {
+                  "source": "TWSE",
+                  "freshness": "REALTIME_INTRADAY",
+                  "fetched_at": "2026-08-10T09:30:10+08:00"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "phase": 3,
+      "at": "13:20:00",
+      "tools": [
+        {
+          "tool": "get_intraday_vwap",
+          "args": {
+            "symbol": "2308"
+          },
+          "result": {
+            "data": {
+              "symbol": "2308",
+              "vwap": 106.0,
+              "high": 108.0,
+              "low": 104.0,
+              "current_price": 107.5
+            },
+            "_lineage": {
+              "source": "TWSE",
+              "freshness": "REALTIME_INTRADAY",
+              "fetched_at": "2026-08-10T13:20:00+08:00"
+            }
+          }
+        },
+        {
+          "tool": "detect_volume_surge",
+          "args": {
+            "symbol": "2308"
+          },
+          "result": {
+            "data": {
+              "symbol": "2308",
+              "volumeSurgeRatio": 2.0,
+              "volumeSurgeType": "NEUTRAL",
+              "is_surge": false
+            },
+            "_lineage": {
+              "source": "TWSE",
+              "freshness": "REALTIME_INTRADAY",
+              "fetched_at": "2026-08-10T13:20:00+08:00"
+            }
+          }
+        },
+        {
+          "tool": "get_intraday_vwap",
+          "args": {
+            "symbol": "2317"
+          },
+          "result": {
+            "data": {
+              "symbol": "2317",
+              "vwap": 101.0,
+              "high": 102.0,
+              "low": 100.0,
+              "current_price": 100.5
+            },
+            "_lineage": {
+              "source": "TWSE",
+              "freshness": "REALTIME_INTRADAY",
+              "fetched_at": "2026-08-10T13:20:00+08:00"
+            }
+          }
+        },
+        {
+          "tool": "detect_volume_surge",
+          "args": {
+            "symbol": "2317"
+          },
+          "result": {
+            "data": {
+              "symbol": "2317",
+              "volumeSurgeRatio": 1.0,
+              "volumeSurgeType": "NEUTRAL",
+              "is_surge": false
+            },
+            "_lineage": {
+              "source": "TWSE",
+              "freshness": "REALTIME_INTRADAY",
+              "fetched_at": "2026-08-10T13:20:00+08:00"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "phase": 4,
+      "at": "14:30:00",
+      "tools": [
+        {
+          "tool": "get_stock_daily_kline",
+          "args": {
+            "symbol": "2308"
+          },
+          "result": {
+            "data": {
+              "symbol": "2308",
+              "period": "day",
+              "candles": [
+                {
+                  "timestamp": "2026-08-10",
+                  "open": 105,
+                  "high": 108.5,
+                  "low": 104.2,
+                  "close": 107.8,
+                  "volume": 180000
+                }
+              ]
+            },
+            "_lineage": {
+              "source": "TWSE",
+              "freshness": "HISTORICAL",
+              "fetched_at": "2026-08-10T14:30:00+08:00",
+              "data_date": "2026-08-10"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
