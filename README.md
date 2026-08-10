@@ -34,7 +34,8 @@ src/
   metrics/      交易日誌與績效指標（T010 ✅）
   llm/          LLM 檢討報告（T011 ✅）：Schema 驗證、白名單、llm_offline
   scheduler/    交易日曆與生命週期排程（T005 ✅）
-  backtest/     回測與參數最佳化（T012/T022-T024）
+  backtest/     回測與參數最佳化（T022-T024）
+  tools/        回放工具（T012 ✅）：決策追溯、滑價驗證、JSON/可讀輸出
   logging/      結構化 JSON 日誌（T001 ✅）+ 事件日誌與回放（T004 ✅）
   config/       設定載入（yaml + env 覆寫）
   utils/        時區等共用工具
@@ -166,6 +167,7 @@ if (tick.isExpired(symbol, cfg.behavior.signal_expiry_min)) { /* 過期重評 */
 - [x] T009 盤中監控循環（§4 Phase 2 + Phase 3）
 - [x] T010 交易日誌與績效指標（§14.4/§15）
 - [x] T011 LLM 檢討報告與防幻覺（§16）
-- [ ] T012+ 依任務書依序實作
+- [x] T012 回放工具與滑價驗證（§1 原則 5）
+- [ ] T013+ 依任務書依序實作
 
 規格書：`~/tasks/tw-quant-daybrain/tw-quant-daybrain-v2_1.md`
