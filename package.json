@@ -18,7 +18,8 @@
     "dev": "tsx src/index.ts",
     "stress": "tsx src/ops/stress_cli.ts",
     "experiment": "tsx src/ops/experiment_cli.ts",
-    "grid-search": "tsx src/backtest/grid_search_cli.ts"
+    "grid-search": "tsx src/backtest/grid_search_cli.ts",
+    "wfo": "tsx src/backtest/wfo_cli.ts"
   },
   "keywords": [
     "trading",
