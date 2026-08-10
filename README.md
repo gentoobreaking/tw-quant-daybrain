@@ -174,7 +174,15 @@ if (tick.isExpired(symbol, cfg.behavior.signal_expiry_min)) { /* 過期重評 */
 - [x] T013 測試策略與模擬盤（Mock MCP Server + 模擬日 + 故障注入 + 回測 fixtures）
 - [x] T014 部署與營運（單進程 + 子程序 MCP + 紙上交單 + headless + 優雅關閉）
 - [x] T015 壓測與發布（全交易日壓測 + 參數實驗 + 附錄 A 對齊 + 契約相容 CI；v2.0 tag 待 T016–T024 完成）
-- [ ] T016–T024 依任務書依序實作
+- [x] T016 盤前多空傾向鎖定（Bias Decision Tree，§5；對齊 tw-quant-mcp v1.3 實際契約）
+- [x] T017 做多策略引擎（VWAP_SURGE_LONG，§6）
+- [x] T018 空方策略引擎（BULL_TRAP_VWAP_SHORT，§7）
+- [x] T019 盤前戰術報告產生器（Tactical Briefing，§9）
+- [x] T020 優先權排序引擎（Priority Ranking Engine，§10）
+- [x] T021 回測資料載入器（CsvDataLoader，§12.3）
+- [x] T022 事件驅動回測模擬器（§12）
+- [x] T023 參數網格搜尋（§13.1）
+- [x] T024 Walk-Forward Optimization（§13.3）
 
 ## 交易日排程（§18.2）
 
