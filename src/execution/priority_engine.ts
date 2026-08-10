@@ -141,7 +141,8 @@ export class PriorityRankingEngine {
     }
 
     // 4. 綜合優先權得分（§10.1）
-    const preMarketScore = briefing.bias_assessment.score;
+    // SHORT_ONLY 之 bias score 為負值（-75）；Tier 資金與 Rank 皆取其絕對值（強度），方向由白名單/action 決定
+    const preMarketScore = Math.abs(briefing.bias_assessment.score);
     const rankScore = computeRankScore(
       preMarketScore,
       candidate.volumeSurgeRatio,
