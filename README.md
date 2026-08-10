@@ -32,7 +32,7 @@ src/
   risk/         風控系統（T008）
   pre_market/   盤前流程（T006 ✅）：Phase 0 就緒檢查 + Phase 1 三路徑選股
   metrics/      交易日誌與績效指標（T010 ✅）
-  llm/          LLM 檢討報告（T011）
+  llm/          LLM 檢討報告（T011 ✅）：Schema 驗證、白名單、llm_offline
   scheduler/    交易日曆與生命週期排程（T005 ✅）
   backtest/     回測與參數最佳化（T012/T022-T024）
   logging/      結構化 JSON 日誌（T001 ✅）+ 事件日誌與回放（T004 ✅）
@@ -165,6 +165,7 @@ if (tick.isExpired(symbol, cfg.behavior.signal_expiry_min)) { /* 過期重評 */
 - [x] T008 風控系統與持倉狀態機（§11）
 - [x] T009 盤中監控循環（§4 Phase 2 + Phase 3）
 - [x] T010 交易日誌與績效指標（§14.4/§15）
-- [ ] T011+ 依任務書依序實作
+- [x] T011 LLM 檢討報告與防幻覺（§16）
+- [ ] T012+ 依任務書依序實作
 
 規格書：`~/tasks/tw-quant-daybrain/tw-quant-daybrain-v2_1.md`
