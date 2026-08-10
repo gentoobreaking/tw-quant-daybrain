@@ -16,6 +16,15 @@ export const EnvConfigSchema = z.object({
   TIME_ZONE: z.string().default(ENV_DEFAULTS.TIME_ZONE),
   MCP_SERVER_BIN: z.string().default(ENV_DEFAULTS.MCP_SERVER_BIN),
   MCP_TRANSPORT: z.enum(['stdio', 'streamable-http']).default('stdio'),
+  /** 紙上交單：人工確認（false=自動 headless，true=需 CLI 確認） */
+  HEADLESS: z
+    .string()
+    .transform((v) => v === 'true' || v === '1')
+    .default('false'),
+  PAPER_CONFIRM: z
+    .string()
+    .transform((v) => v === 'true' || v === '1')
+    .default('false'),
   DATA_STALENESS_MAX_SEC: z.coerce.number().int().positive().default(30),
   SCORE_THRESHOLD: z.coerce.number().min(0).max(100).default(80),
   NEUTRAL_SCORE_THRESHOLD: z.coerce.number().min(0).max(100).default(85),

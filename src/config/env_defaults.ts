@@ -31,6 +31,10 @@ export const ENV_DEFAULTS: Record<string, string> = {
   NO_ENTRY_AFTER: '13:00',
   FORCE_CLOSE_AT: '13:20',
 
+  // 紙上交單（§18.3 Human-in-the-loop / headless）
+  HEADLESS: 'false',
+  PAPER_CONFIRM: 'false',
+
   // 路徑
   LOG_DIR: './logs',
   DATA_DIR: './data/historical_1m',
