@@ -194,6 +194,11 @@ export class PriorityRankingEngine {
     this.currentActivePositions.delete(symbol);
   }
 
+  /** 清空全部持倉（§13.1 每交易日/每迭代重置） */
+  public releaseAllPositions(): void {
+    this.currentActivePositions.clear();
+  }
+
   /** 當前總曝光 */
   public totalExposure(): number {
     return Array.from(this.currentActivePositions.values()).reduce((sum, p) => sum + p.capital, 0);

@@ -124,6 +124,27 @@ export class DayBrainBacktestSimulator {
   }
 
   public runSimulation(marketData: Map<string, MinuteBar[]>): BacktestReport {
+    // §13.1 多日 fixtures：依交易日切分，每日獨立模擬（runningStats/持倉/計數器重置），最後合併
+    const days = this.splitByTradingDay(marketData);
+    if (days.length > 0) {
+      const reports: BacktestReport[] = [];
+      for (const day of days) {
+        reports.push(this.runSingleDay(day.marketData));
+        // 跨日重置：持倉與 Priority Engine 註冊狀態
+        this.activePositions.clear();
+        this.rankingEngine.releaseAllPositions();
+        this.conflictsResolved = 0;
+        this.blockedByBriefingBias = 0;
+        this.blockedBySectorLimit = 0;
+        this.blockedByMarginCap = 0;
+      }
+      // 合併報告
+      return this.mergeDayReports(reports, days[0].date, days[days.length - 1].date);
+    }
+    return this.runSingleDay(marketData);
+  }
+
+  private runSingleDay(marketData: Map<string, MinuteBar[]>): BacktestReport {
     const timestamps = this.extractAndSortTimestamps(marketData);
 
     // 每標的滾動統計：VWAP 累計 / 當日高低 / 開盤 15 分低點（凍結）/ 近 20 分鐘量
@@ -272,6 +293,45 @@ export class DayBrainBacktestSimulator {
     return this.generateReport();
   }
 
+  /** 合併多日報告（§13.1）：交易紀錄串接、summary 重新統計、test_period 跨日 */
+  private mergeDayReports(reports: BacktestReport[], startDate: string, endDate: string): BacktestReport {
+    const trades = reports.flatMap((r) => r.trades);
+    const totalTrades = trades.length;
+    const winTrades = trades.filter((t) => t.pnlNtd > 0);
+    const totalPnl = trades.reduce((sum, t) => sum + t.pnlNtd, 0);
+    const grossWin = trades.filter((t) => t.pnlNtd > 0).reduce((s, t) => s + t.pnlNtd, 0);
+    const grossLoss = Math.abs(trades.filter((t) => t.pnlNtd < 0).reduce((s, t) => s + t.pnlNtd, 0));
+    const profitFactor = grossLoss > 0 ? Number((grossWin / grossLoss).toFixed(2)) : totalPnl > 0 ? Infinity : 0;
+
+    // max_drawdown：累計損益曲線回撤（跨日連續；負值表示回撤，§12.5 同 generateReport）
+    let peak = 0; let maxDrawdown = 0; let cumulative = 0;
+    for (const t of trades) {
+      cumulative += t.pnlNtd;
+      if (cumulative > peak) peak = cumulative;
+      const dd = cumulative - peak;
+      if (dd < maxDrawdown) maxDrawdown = dd;
+    }
+
+    return {
+      summary: {
+        test_period: startDate === endDate ? startDate : `${startDate} to ${endDate}`,
+        total_simulated_days: reports.length,
+        total_trades: totalTrades,
+        win_rate_pct: totalTrades > 0 ? Number(((winTrades.length / totalTrades) * 100).toFixed(1)) : 0,
+        net_total_pnl_ntd: totalPnl,
+        profit_factor: profitFactor,
+        max_drawdown_ntd: maxDrawdown,
+      },
+      engine_effectiveness: {
+        blocked_by_briefing_bias: reports.reduce((s, r) => s + r.engine_effectiveness.blocked_by_briefing_bias, 0),
+        blocked_by_sector_limit: reports.reduce((s, r) => s + r.engine_effectiveness.blocked_by_sector_limit, 0),
+        blocked_by_margin_cap: reports.reduce((s, r) => s + r.engine_effectiveness.blocked_by_margin_cap, 0),
+        priority_ranking_conflicts_resolved: reports.reduce((s, r) => s + r.engine_effectiveness.priority_ranking_conflicts_resolved, 0),
+      },
+      trades,
+    };
+  }
+
   /** 依 Rank Score 降冪排序（同分鐘多候選，§10.4） */
   private rankCandidates(candidates: SignalCandidate[]): SignalCandidate[] {
     const scored = candidates.map((c) => {
@@ -355,6 +415,27 @@ export class DayBrainBacktestSimulator {
     const timeSet = new Set<string>();
     for (const bars of marketData.values()) bars.forEach((b) => timeSet.add(b.datetime));
     return Array.from(timeSet).sort();
+  }
+
+  /**
+   * 依交易日切分市場資料（§13.1 Grid Search 多日 fixtures）。
+   * 每個交易日獨立跑一遍（runningStats/持倉/事件計數器全部重置），最後合併交易紀錄與報告。
+   * @returns 依日期排序的 [{ date, marketData }]
+   */
+  private splitByTradingDay(marketData: Map<string, MinuteBar[]>): { date: string; marketData: Map<string, MinuteBar[]> }[] {
+    const dayMap = new Map<string, Map<string, MinuteBar[]>>();
+    for (const [symbol, bars] of marketData.entries()) {
+      for (const bar of bars) {
+        const day = bar.datetime.slice(0, 10); // YYYY-MM-DD
+        if (!dayMap.has(day)) dayMap.set(day, new Map());
+        const dayData = dayMap.get(day)!;
+        if (!dayData.has(symbol)) dayData.set(symbol, []);
+        dayData.get(symbol)!.push(bar);
+      }
+    }
+    return Array.from(dayMap.entries())
+      .sort(([a], [b]) => (a < b ? -1 : 1))
+      .map(([date, d]) => ({ date, marketData: d }));
   }
 
   private generateReport(): BacktestReport {
