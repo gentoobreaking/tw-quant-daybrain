@@ -30,6 +30,7 @@ src/
   briefing/     Tactical Briefing 產生器（T019）
   execution/    下單執行與 Priority Ranking（T010/T020）
   risk/         風控系統（T008）
+  pre_market/   盤前流程（T006 ✅）：Phase 0 就緒檢查 + Phase 1 三路徑選股
   metrics/      績效指標（T010）
   llm/          LLM 檢討報告（T011）
   scheduler/    交易日曆與生命週期排程（T005 ✅）
@@ -108,6 +109,30 @@ const scheduler = new LifecycleScheduler(phases, {
 for (;;) { scheduler.checkAndFire(); await sleep(10_000); }
 ```
 
+## 盤前流程使用方式
+
+```ts
+import { Phase0ReadyCheck } from './src/pre_market/phase0.js';
+import { Phase1Selector } from './src/pre_market/phase1.js';
+
+// Phase 0（08:15）：連線驗證 + 前一日盤後預熱
+const p0 = new Phase0ReadyCheck({
+  listTools: () => mcp.listTools(),
+  mcpCall: (t, a) => mcp.call(t, a),
+  gate: (env, scope, opt) => gate.check(env, scope, opt),
+});
+const ready = await p0.run(); // { connectionReady, dataGaps, warmup }
+
+// Phase 1（08:30）：三路徑選股 → 過濾 → 候選清單 3–5 檔 → set_active_watchlist
+const p1 = new Phase1Selector({
+  mcpCall: (t, a) => mcp.call(t, a),
+  gate: (env, scope, opt) => gate.check(env, scope, opt),
+  today: todayInTaipei(),
+  yesterday: previousTradingDay(),
+});
+const report = await p1.run(); // { candidates, watchlist, lowSignalDay, dataGaps }
+```
+
 ## 任務狀態
 
 - [x] T001 專案初始化與設定骨架
@@ -115,6 +140,7 @@ for (;;) { scheduler.checkAndFire(); await sleep(10_000); }
 - [x] T003 資料新鮮度守門
 - [x] T004 事件日誌與回放
 - [x] T005 交易日曆與生命週期排程器
-- [ ] T006+ 依任務書依序實作
+- [x] T006 盤前流程（Phase 0 + Phase 1 選股）
+- [ ] T007+ 依任務書依序實作
 
 規格書：`~/tasks/tw-quant-daybrain/tw-quant-daybrain-v2_1.md`
