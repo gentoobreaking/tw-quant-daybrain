@@ -1,0 +1,45 @@
+# 交易日排程（§18.2）— 由 scheduler 元件載入
+# 時間格式 HH:MM，時區固定 Asia/Taipei（§17）
+
+timezone: Asia/Taipei
+
+phases:
+  - name: phase0_ready
+    time: "08:15"
+    event: 資料就緒檢查與預熱
+  - name: phase1_premarket
+    time: "08:30"
+    event: 盤前選股 + Bias 決策樹
+  - name: briefing_lock
+    time: "08:55"
+    event: Tactical Briefing 產出與鎖定
+  - name: phase2_intraday
+    time: "09:00"
+    end: "12:30"
+    tick_sec: 10
+    event: 盤中監控（tick 10s）
+  - name: phase3_close
+    time: "11:30"
+    event: 尾盤收斂觸發點（11:30）
+  - name: phase3_close_1230
+    time: "12:30"
+    event: 尾盤收斂觸發點（12:30）
+  - name: phase3_close_1300
+    time: "13:00"
+    event: 尾盤收斂觸發點（13:00）
+  - name: phase3_close_1310
+    time: "13:10"
+    event: 尾盤收斂觸發點（13:10）
+  - name: phase3_close_1315
+    time: "13:15"
+    event: 尾盤收斂觸發點（13:15）
+  - name: phase3_close_1320
+    time: "13:20"
+    event: 尾盤收斂觸發點（13:20，FORCE_CLOSE_AT）
+  - name: phase4_postmarket
+    time: "14:30"
+    event: 盤後統計與日誌
+
+# 盤中監控週期（秒）
+intraday:
+  tick_sec: 10

@@ -1,0 +1,28 @@
+# 訊號評分表（§8.2 預設值）— Config-Driven 評分設定
+# 權重與門檻定義於此，可版本化；scoring_version 寫入每筆訊號。
+# 注意：本表數字與 §6.3/§7.3 TypeScript 實作須保持一致（§8.1）。
+
+scoring_version: "2.1.0"
+
+# 各評分項目權重（§8.2 評分表）
+weights:
+  position: 25        # 位階：價 > VWAP（多）/ 價 < VWAP（空）
+  volume: 25          # 量能：volumeSurgeRatio >= VOLUME_SURGE_THRESHOLD（多）/ BEARISH_BREAKDOWN（空）
+  breakout: 25        # 突破/破位：價 >= 當日高點（多）/ 價 < 開盤前 15 分鐘低點（空）
+  market_direction: 25  # 大盤方向：台指期 1 分 K 紅棒（多）/ 黑棒（空）
+
+# 風控 Veto（§8.2 評分表）
+veto:
+  long_limit_up_proximity: -50   # 多方限定：距漲停 < 1.5% 利潤空間不足（扣分，非否決）
+  short_surge_lock: -100         # 空方限定：今日漲幅 >= 6.5% 防軋空鎖死（否決）
+  generic_restriction: -100      # 通用：處置/注意/當沖限制/停資停券（否決）
+
+# 門檻（§8.3）
+thresholds:
+  strong_buy: 75        # >= 75：STRONG_BUY / STRONG_SELL
+  watch: 60             # 60-74：WATCH（僅記錄）
+  neutral_flexible_override: 85  # NEUTRAL_FLEXIBLE 日進場門檻提高（§5.3）
+
+# 訊號行為
+behavior:
+  signal_expiry_min: 5  # 訊號產生後 5 分鐘內未觸發進場價 → 過期重評
