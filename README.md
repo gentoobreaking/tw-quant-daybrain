@@ -26,7 +26,7 @@ src/
   mcp/          MCP Client 連線層（T002 ✅）：Envelope 解析、重試、breaker
   gate/        資料新鮮度守門（T003 ✅）：降級狀態機 NORMAL/STALE/DEGRADED/LOCKOUT
   bias/         盤前多空傾向鎖定（T016）
-  engine/       策略引擎（T017/T018）；訊號評分模型（T007 ✅）
+  engine/       策略引擎（T017/T018）；訊號評分模型（T007 ✅）；盤中監控循環（T009 ✅）
   briefing/     Tactical Briefing 產生器（T019）
   execution/    下單執行與 Priority Ranking（T010/T020）
   risk/         風控系統（T008）
@@ -163,6 +163,7 @@ if (tick.isExpired(symbol, cfg.behavior.signal_expiry_min)) { /* 過期重評 */
 - [x] T006 盤前流程（Phase 0 + Phase 1 選股）
 - [x] T007 訊號評分模型（Config-Driven，§8）
 - [x] T008 風控系統與持倉狀態機（§11）
-- [ ] T009+ 依任務書依序實作
+- [x] T009 盤中監控循環（§4 Phase 2 + Phase 3）
+- [ ] T010+ 依任務書依序實作
 
 規格書：`~/tasks/tw-quant-daybrain/tw-quant-daybrain-v2_1.md`
