@@ -1,0 +1,50 @@
+{
+  "fixture": "testdata/mcp/intraday.json",
+  "rows": [
+    {
+      "label": "v2.0 基線",
+      "volume_surge_threshold": 3,
+      "scoring_version": "2.1.0",
+      "signals": 1,
+      "win_rate": 0,
+      "profit_factor": 0,
+      "failed_breakout_rate": 0,
+      "trades": 0
+    },
+    {
+      "label": "候選 2.5",
+      "volume_surge_threshold": 2.5,
+      "scoring_version": "2.1.0",
+      "signals": 1,
+      "win_rate": 0,
+      "profit_factor": 0,
+      "failed_breakout_rate": 0,
+      "trades": 0
+    },
+    {
+      "label": "候選 3.5",
+      "volume_surge_threshold": 3.5,
+      "scoring_version": "2.1.0",
+      "signals": 1,
+      "win_rate": 0,
+      "profit_factor": 0,
+      "failed_breakout_rate": 0,
+      "trades": 0
+    }
+  ],
+  "best": {
+    "label": "v2.0 基線",
+    "volume_surge_threshold": 3,
+    "scoring_version": "2.1.0",
+    "signals": 1,
+    "win_rate": 0,
+    "profit_factor": 0,
+    "failed_breakout_rate": 0,
+    "trades": 0
+  },
+  "warnings": [
+    "低訊號日（候選不足 3 檔）",
+    "低訊號日（候選不足 3 檔）",
+    "低訊號日（候選不足 3 檔）"
+  ]
+}

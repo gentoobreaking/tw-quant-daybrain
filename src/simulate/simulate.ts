@@ -44,6 +44,14 @@ export interface SimulateOptions {
   fault?: FaultMode;
   /** 注入故障之工具名（預設第一個盤中工具） */
   faultTool?: string;
+  /** T015 壓測：以 10s tick 連續 09:00–13:30 全交易日運行（覆寫 fixture ticks） */
+  stressTicks?: boolean;
+  /** 壓測時 fixture 資料不足之重複策略（依序消費制改為可重用） */
+  reuseFixtures?: boolean;
+  /** 壓測：每 tick 延遲 ms（模擬真實節奏；預設 0） */
+  tickDelayMs?: number;
+  /** T015 參數實驗：覆寫評分參數（量能閾值等），同一 fixture 跑不同參數對比 */
+  scoringOverrides?: { volumeSurgeThreshold?: number; scoring_version?: string };
 }
 
 export interface SimulateResult {
@@ -55,6 +63,11 @@ export interface SimulateResult {
   signals: number;
   warnings: string[];
   logDir: string;
+  /** T015：實際執行 tick 數（壓測時為 270） */
+  ticksExecuted: number;
+  /** T015：首/末 tick 時間 */
+  startAt?: string;
+  endAt?: string;
 }
 
 function loadFixture(path: string): DayFixture {
@@ -62,7 +75,12 @@ function loadFixture(path: string): DayFixture {
 }
 
 /** fixture 回放 mcp call（依 tool + args.symbol 比對） */
-function fixtureCaller(fixture: DayFixture, fault: FaultMode, faultTool: string) {
+function fixtureCaller(
+  fixture: DayFixture,
+  fault: FaultMode,
+  faultTool: string,
+  reuse = false,
+) {
   return async (tool: string, args: Record<string, unknown>): Promise<{ data: unknown; _lineage: Record<string, unknown> }> => {
     // 故障注入：連線中斷（tools/list 層）
     if (fault === 'connection_drop' && tool === '__connect__') {
@@ -84,6 +102,7 @@ function fixtureCaller(fixture: DayFixture, fault: FaultMode, faultTool: string)
       const idx = calls.findIndex((c) => c.tool === tool && JSON.stringify(c.args ?? {}) === JSON.stringify(args ?? {}));
       if (idx >= 0) {
         const hit = calls[idx];
+        if (reuse) return hit.result; // 壓測：可重用，不消費
         // 消費：從 fixture 移除該筆，避免後續 tick 重複取到舊資料
         if (phase.tools) {
           const ti = phase.tools.indexOf(hit);
@@ -95,6 +114,13 @@ function fixtureCaller(fixture: DayFixture, fault: FaultMode, faultTool: string)
         }
         return hit.result;
       }
+    }
+    if (reuse) {
+      // 壓測：fixture 找不到 → 回傳中性資料（不中斷全交易日）
+      return {
+        data: { symbol: String(args.symbol ?? ''), price: 100, volume: 1000 },
+        _lineage: { source: 'TWSE', freshness: 'REALTIME_INTRADAY', fetched_at: new Date().toISOString(), is_cached: false, sampling_sec: 1, cache_ttl_sec: 1 },
+      };
     }
     throw new Error(`fixture 缺工具回應: ${tool} ${JSON.stringify(args)}`);
   };
@@ -111,7 +137,7 @@ export async function runSimulation(opts: SimulateOptions): Promise<SimulateResu
   const fault = opts.fault ?? 'none';
   const faultTool = opts.faultTool ?? 'get_intraday_vwap';
 
-  const caller = fixtureCaller(fixture, fault, faultTool);
+  const caller = fixtureCaller(fixture, fault, faultTool, opts.reuseFixtures);
   const gate = new FreshnessGate({ nowFn: () => new Date('2026-08-10T09:30:00+08:00') });
 
   const phaseResults: SimulateResult['phases'] = [];
@@ -146,7 +172,14 @@ export async function runSimulation(opts: SimulateOptions): Promise<SimulateResu
   if (p1.lowSignalDay) warnings.push('低訊號日（候選不足 3 檔）');
 
   // ---- Phase 2（09:00–12:30）：盤中監控 ----
-  const scoring = new SignalScoringEngine(loadScoringConfigFromFile());
+  const baseScoring = loadScoringConfigFromFile();
+  const scoring = new SignalScoringEngine({
+    ...baseScoring,
+    scoring_version: opts.scoringOverrides?.scoring_version ?? baseScoring.scoring_version,
+    ...(opts.scoringOverrides?.volumeSurgeThreshold !== undefined
+      ? { volumeSurgeThreshold: opts.scoringOverrides.volumeSurgeThreshold }
+      : {}),
+  });
   const ticker = new TickConfirmer();
   const repo = new InMemoryPositionRepository();
   const risk = new RiskManager({
@@ -172,23 +205,40 @@ export async function runSimulation(opts: SimulateOptions): Promise<SimulateResu
     nowFn: () => new Date('2026-08-10T09:30:00+08:00'),
   });
 
-  // 依 fixture 之 ticks 順序驅動（每 tick 一次 loop.tick）
+  // 依 fixture 之 ticks 順序驅動（每 tick 一次 loop.tick）；壓測模式生成 09:00–13:30 連續 10s tick
   const phase2 = fixture.phases.find((p) => p.phase === 2);
   let signals = 0;
-  if (phase2?.ticks) {
-    for (const t of phase2.ticks) {
-      const at = new Date(`2026-08-10T${t.at}+08:00`);
-      // 以 fixture 的 tick 時間驅動 nowFn
-      (loop as unknown as { nowFn: () => Date }).nowFn = () => at;
-      try {
-        const advices = await loop.tick(at);
-        signals += advices.length;
-      } catch (err) {
-        warnings.push(`tick ${t.at} 失敗: ${(err as Error).message}`);
-      }
+  let ticksExecuted = 0;
+  let startAt: string | undefined;
+  let endAt: string | undefined;
+  const tickTimes: string[] = [];
+  if (opts.stressTicks) {
+    // 09:00:00 → 13:30:00 每 10s（含 09:00–09:05 開盤緩衝與 12:30–13:30 Phase 3 收斂）
+    for (let ms = 9 * 3600_000; ms <= 13.5 * 3600_000; ms += 10_000) {
+      const h = Math.floor(ms / 3600_000);
+      const m = Math.floor((ms % 3600_000) / 60_000);
+      const s = Math.floor((ms % 60_000) / 1000);
+      tickTimes.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
+    }
+  } else if (phase2?.ticks) {
+    for (const t of phase2.ticks) tickTimes.push(t.at);
+  }
+  for (const at of tickTimes) {
+    const dt = new Date(`2026-08-10T${at}+08:00`);
+    // 以 fixture 的 tick 時間驅動 nowFn
+    (loop as unknown as { nowFn: () => Date }).nowFn = () => dt;
+    try {
+      const advices = await loop.tick(dt);
+      signals += advices.length;
+      ticksExecuted += 1;
+      if (!startAt) startAt = at;
+      endAt = at;
+      if (opts.tickDelayMs) await new Promise((r) => setTimeout(r, opts.tickDelayMs));
+    } catch (err) {
+      warnings.push(`tick ${at} 失敗: ${(err as Error).message}`);
     }
   }
-  phaseResults.push({ phase: 2, at: '09:30', ok: signals >= 0, detail: `ticks=${phase2?.ticks?.length ?? 0} signals=${signals}` });
+  phaseResults.push({ phase: 2, at: '09:30', ok: signals >= 0, detail: `ticks=${tickTimes.length} signals=${signals}` });
 
   // ---- Phase 3（13:20）：強制平倉 ----
   const phase3 = fixture.phases.find((p) => p.phase === 3);
@@ -219,6 +269,9 @@ export async function runSimulation(opts: SimulateOptions): Promise<SimulateResu
     signals,
     warnings,
     logDir,
+    ticksExecuted,
+    startAt,
+    endAt,
   };
 }
 

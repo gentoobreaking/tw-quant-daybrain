@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Lint
+        run: npm run lint
+      - name: Unit tests
+        run: npm run test
+      - name: Simulate day
+        run: npm run test:simulate
+      - name: Stress test (full trading day)
+        run: npm run stress -- --tick-delay 0
+      - name: Appendix A alignment
+        run: node --test --import tsx src/ops/appendix_a.test.ts
+      - name: MCP v1.3 contract compat
+        run: node --test --import tsx src/ops/contract_compat.test.ts

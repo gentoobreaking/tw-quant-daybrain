@@ -173,6 +173,41 @@ if (tick.isExpired(symbol, cfg.behavior.signal_expiry_min)) { /* 過期重評 */
 - [x] T012 回放工具與滑價驗證（§1 原則 5）
 - [x] T013 測試策略與模擬盤（Mock MCP Server + 模擬日 + 故障注入 + 回測 fixtures）
 - [x] T014 部署與營運（單進程 + 子程序 MCP + 紙上交單 + headless + 優雅關閉）
-- [ ] T015+ 依任務書依序實作
+- [x] T015 壓測與發布（全交易日壓測 + 參數實驗 + 附錄 A 對齊 + 契約相容 CI；v2.0 tag 待 T016–T024 完成）
+- [ ] T016–T024 依任務書依序實作
+
+## 交易日排程（§18.2）
+
+交易日自動執行以下時序（非交易日休眠；`config/scheduler.yaml` 為真值，
+`NO_ENTRY_AFTER` / `FORCE_CLOSE_AT` 環境變數可覆寫）：
+
+| 時間 | Phase | 動作 |
+|------|-------|------|
+| 08:15 | Phase 0 | 就緒檢查（交易日曆/行情源/權限） |
+| 08:30 | Phase 1 | 盤前選股（三路徑合併、去重、watchlist ≤ 15 檔） |
+| 08:55 | Briefing | 策略簡報鎖定（Bias 決策樹） |
+| 09:00–12:30 | Phase 2 | 盤中監控（每 10s tick：VWAP + 爆量偵測 + 雙 tick 確認 + 評分） |
+| 11:30 | Phase 3 | 停止新空單訊號 |
+| 12:30 | Phase 3 | 警示不再開倉 |
+| 13:00 | Phase 3 | 硬停多單新訊號 + 空單強制回補 |
+| 13:10 | Phase 3 | 多方強平警告（FORCE_FLAT_ALL） |
+| 13:15 | Phase 3 | 未平倉最高等級強平提醒 |
+| 13:20 | Phase 3 | 強制全數平倉（FORCE_CLOSE_AT） |
+| 14:30 | Phase 4 | 盤後統計 + 交易日誌 |
+
+## 壓測與參數實驗（T015）
+
+```bash
+npm run stress   # 全交易日壓測：10s tick 連續 09:00–13:30（1621 ticks，驗證無遺漏/記憶體穩定）
+npm run experiment -- --param volume_surge_threshold --values 3.0,2.5,3.5  # 參數對比
+```
+
+## 免責聲明
+
+本專案為**研究/模擬用途**（paper trading），不構成任何投資建議。
+所有訊號由規則引擎產生，經模擬盤（fixture 回放）驗證；實際交易前請自行評估風險。
+自動化交易可能因資料延遲、系統故障或市場異常造成損失，使用者須自負全責。
+
+---
 
 規格書：`~/tasks/tw-quant-daybrain/tw-quant-daybrain-v2_1.md`
