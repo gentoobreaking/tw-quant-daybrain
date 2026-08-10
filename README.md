@@ -16,6 +16,7 @@ npm run build      # tsc 編譯至 dist/
 npm run test       # node:test 單元測試（離線全綠）
 npm run test:simulate   # 全盤模擬日（fixture 回放 Phase 0→4）
 npm run test:simulate:unit # 模擬/故障注入單元測試
+npm run start        # 單進程部署（交易日自動執行、非交易日休眠；MCP_SERVER_BIN 子程序）
 npm run lint       # tsc --noEmit + eslint
 npm run dev        # tsx 直接執行
 node dist/index.js # 啟動最小進程
@@ -171,6 +172,7 @@ if (tick.isExpired(symbol, cfg.behavior.signal_expiry_min)) { /* 過期重評 */
 - [x] T011 LLM 檢討報告與防幻覺（§16）
 - [x] T012 回放工具與滑價驗證（§1 原則 5）
 - [x] T013 測試策略與模擬盤（Mock MCP Server + 模擬日 + 故障注入 + 回測 fixtures）
-- [ ] T014+ 依任務書依序實作
+- [x] T014 部署與營運（單進程 + 子程序 MCP + 紙上交單 + headless + 優雅關閉）
+- [ ] T015+ 依任務書依序實作
 
 規格書：`~/tasks/tw-quant-daybrain/tw-quant-daybrain-v2_1.md`
