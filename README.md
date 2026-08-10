@@ -34,7 +34,7 @@ src/
   llm/          LLM 檢討報告（T011）
   scheduler/    交易日曆與生命週期排程（T005）
   backtest/     回測與參數最佳化（T012/T022-T024）
-  logging/      結構化 JSON 日誌（T001）
+  logging/      結構化 JSON 日誌（T001 ✅）+ 事件日誌與回放（T004 ✅）
   config/       設定載入（yaml + env 覆寫）
   utils/        時區等共用工具
 test/
@@ -71,11 +71,22 @@ const r = gate.check(env, 'INTRADAY_SIGNAL', { symbol: '2308' });
 if (!r.passed) { /* 降級處理：STALE 停訊 / DEGRADED 停新訊 / LOCKOUT 全停 */ }
 ```
 
+## 事件日誌使用方式
+
+```ts
+import { EventLogger } from './src/logging/event_logger.js';
+const events = new EventLogger(process.env.LOG_DIR);
+events.write('signal_issued', { signal_id: 'S1', symbol: '2308', score: 85 });
+const day = events.loadDay('2026-08-10');     // 回放：依 ts 排序
+const chain = events.loadChain('2026-08-10', { signal_id: 'S1' }); // 決策追溯
+```
+
 ## 任務狀態
 
 - [x] T001 專案初始化與設定骨架
 - [x] T002 MCP Client 連線層
 - [x] T003 資料新鮮度守門
-- [ ] T004+ 依任務書依序實作
+- [x] T004 事件日誌與回放
+- [ ] T005+ 依任務書依序實作
 
 規格書：`~/tasks/tw-quant-daybrain/tw-quant-daybrain-v2_1.md`
