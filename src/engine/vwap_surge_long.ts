@@ -235,7 +235,7 @@ export class VwapSurgeLongEngine {
   async fetchTaifexBullish(symbol: string, now: Date): Promise<{ bullish: boolean; unknown: boolean }> {
     const data = await this.fetchGated('get_intraday_kline', { symbol: 'TX', timeframe: '1m', limit: 1 }, symbol, now);
     if (!data) return { bullish: false, unknown: true };
-    const candles = (Array.isArray(data) ? data : (data.candles as unknown[])) as Array<{
+    const candles = (Array.isArray(data) ? data : ((data.candles ?? []) as unknown[])) as Array<{
       open?: number;
       close?: number;
     }>;
