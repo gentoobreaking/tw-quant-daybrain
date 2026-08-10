@@ -32,7 +32,7 @@ src/
   risk/         風控系統（T008）
   metrics/      績效指標（T010）
   llm/          LLM 檢討報告（T011）
-  scheduler/    交易日曆與生命週期排程（T005）
+  scheduler/    交易日曆與生命週期排程（T005 ✅）
   backtest/     回測與參數最佳化（T012/T022-T024）
   logging/      結構化 JSON 日誌（T001 ✅）+ 事件日誌與回放（T004 ✅）
   config/       設定載入（yaml + env 覆寫）
@@ -81,12 +81,40 @@ const day = events.loadDay('2026-08-10');     // 回放：依 ts 排序
 const chain = events.loadChain('2026-08-10', { signal_id: 'S1' }); // 決策追溯
 ```
 
+## 排程器使用方式
+
+```ts
+import { TradingCalendar } from './src/scheduler/trading_calendar.js';
+import { LifecycleScheduler, buildPhaseSchedules } from './src/scheduler/lifecycle_scheduler.js';
+import { EventLogger } from './src/logging/event_logger.js';
+import { loadYamlFile } from './src/config/index.js';
+
+// 1. 交易日判定（get_trading_calendar 快取於 LOG_DIR/calendar.json）
+const cal = new TradingCalendar({ cacheDir: env.LOG_DIR });
+await cal.load(() => mcp.call('get_trading_calendar', {}).then((e) => e.data));
+if (!cal.isTradingDay()) { /* 非交易日休眠：不排程任何 Phase */ }
+
+// 2. 排程表（config/scheduler.yaml 為真值 + NO_ENTRY_AFTER/FORCE_CLOSE_AT 覆寫）
+const raw = loadYamlFile(process.cwd(), 'scheduler.yaml');
+const phases = buildPhaseSchedules(raw, { noEntryAfter: env.NO_ENTRY_AFTER, forceCloseAt: env.FORCE_CLOSE_AT });
+const scheduler = new LifecycleScheduler(phases, {
+  eventLogger: events,
+  onTick: (phase, tick, now) => { /* Phase 2 每 10s：VWAP + 爆量偵測 */ },
+  onPhase3Trigger: (phase, now) => { /* 11:30/12:30/13:00/13:10/13:15/13:20 時間規則 */ },
+  onPhase: (phase, now) => { /* Phase 0/1/4 */ },
+});
+
+// 3. 主迴圈：每 10s 檢查一次
+for (;;) { scheduler.checkAndFire(); await sleep(10_000); }
+```
+
 ## 任務狀態
 
 - [x] T001 專案初始化與設定骨架
 - [x] T002 MCP Client 連線層
 - [x] T003 資料新鮮度守門
 - [x] T004 事件日誌與回放
-- [ ] T005+ 依任務書依序實作
+- [x] T005 交易日曆與生命週期排程器
+- [ ] T006+ 依任務書依序實作
 
 規格書：`~/tasks/tw-quant-daybrain/tw-quant-daybrain-v2_1.md`
