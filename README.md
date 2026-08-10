@@ -162,6 +162,7 @@ if (tick.isExpired(symbol, cfg.behavior.signal_expiry_min)) { /* 過期重評 */
 - [x] T005 交易日曆與生命週期排程器
 - [x] T006 盤前流程（Phase 0 + Phase 1 選股）
 - [x] T007 訊號評分模型（Config-Driven，§8）
-- [ ] T008+ 依任務書依序實作
+- [x] T008 風控系統與持倉狀態機（§11）
+- [ ] T009+ 依任務書依序實作
 
 規格書：`~/tasks/tw-quant-daybrain/tw-quant-daybrain-v2_1.md`
