@@ -26,7 +26,7 @@ src/
   mcp/          MCP Client 連線層（T002 ✅）：Envelope 解析、重試、breaker
   gate/        資料新鮮度守門（T003 ✅）：降級狀態機 NORMAL/STALE/DEGRADED/LOCKOUT
   bias/         盤前多空傾向鎖定（T016）
-  engine/       策略引擎（T017/T018）
+  engine/       策略引擎（T017/T018）；訊號評分模型（T007 ✅）
   briefing/     Tactical Briefing 產生器（T019）
   execution/    下單執行與 Priority Ranking（T010/T020）
   risk/         風控系統（T008）
@@ -133,6 +133,26 @@ const p1 = new Phase1Selector({
 const report = await p1.run(); // { candidates, watchlist, lowSignalDay, dataGaps }
 ```
 
+## 訊號評分使用方式
+
+```ts
+import { SignalScoringEngine, TickConfirmer, loadScoringConfigFromFile } from './src/engine/scoring.js';
+
+const cfg = loadScoringConfigFromFile(process.cwd()); // config/scoring.yaml（scoring_version 寫入每筆評分）
+const engine = new SignalScoringEngine(cfg, { neutralFlexible: bias === 'NEUTRAL_FLEXIBLE' });
+
+const result = engine.score({
+  direction: 'LONG', price, vwap, volumeSurgeRatio,
+  dayHigh, dayLow15m, taifexTrend, distanceToLimitUpPct, dayGainPct, restriction,
+});
+// { total, breakdown: { level, volume, breakout, market, veto_penalty }, grade, veto_reasons, shouldEnter, scoring_version }
+
+// 雙 tick 確認（§4 Phase 2）：兩次 tick 確認後才進入完整評分
+const tick = new TickConfirmer(2);
+if (tick.confirm(symbol)) { /* 進入完整評分 */ }
+if (tick.isExpired(symbol, cfg.behavior.signal_expiry_min)) { /* 過期重評 */ }
+```
+
 ## 任務狀態
 
 - [x] T001 專案初始化與設定骨架
@@ -141,6 +161,7 @@ const report = await p1.run(); // { candidates, watchlist, lowSignalDay, dataGap
 - [x] T004 事件日誌與回放
 - [x] T005 交易日曆與生命週期排程器
 - [x] T006 盤前流程（Phase 0 + Phase 1 選股）
-- [ ] T007+ 依任務書依序實作
+- [x] T007 訊號評分模型（Config-Driven，§8）
+- [ ] T008+ 依任務書依序實作
 
 規格書：`~/tasks/tw-quant-daybrain/tw-quant-daybrain-v2_1.md`
