@@ -31,7 +31,7 @@ src/
   execution/    下單執行與 Priority Ranking（T010/T020）
   risk/         風控系統（T008）
   pre_market/   盤前流程（T006 ✅）：Phase 0 就緒檢查 + Phase 1 三路徑選股
-  metrics/      績效指標（T010）
+  metrics/      交易日誌與績效指標（T010 ✅）
   llm/          LLM 檢討報告（T011）
   scheduler/    交易日曆與生命週期排程（T005 ✅）
   backtest/     回測與參數最佳化（T012/T022-T024）
@@ -164,6 +164,7 @@ if (tick.isExpired(symbol, cfg.behavior.signal_expiry_min)) { /* 過期重評 */
 - [x] T007 訊號評分模型（Config-Driven，§8）
 - [x] T008 風控系統與持倉狀態機（§11）
 - [x] T009 盤中監控循環（§4 Phase 2 + Phase 3）
-- [ ] T010+ 依任務書依序實作
+- [x] T010 交易日誌與績效指標（§14.4/§15）
+- [ ] T011+ 依任務書依序實作
 
 規格書：`~/tasks/tw-quant-daybrain/tw-quant-daybrain-v2_1.md`
