@@ -90,9 +90,9 @@ flowchart TD
 | 時間 | Phase | 動作 |
 |------|-------|------|
 | 08:15 | Phase 0 | 就緒檢查（交易日曆/行情源/權限） |
-| 08:30 | Phase 1 | 盤前選股（三路徑合併、去重、watchlist ≤ 15 檔） |
-| 08:55 | Briefing | 策略簡報鎖定（Bias 決策樹） |
-| 09:00–12:30 | Phase 2 | 盤中監控（每 10s tick：VWAP + 爆量偵測 + 雙 tick 確認 + 評分） |
+| 08:30 | Phase 1 | [盤前選股](docs/pre-market.md)（三路徑合併、去重、watchlist ≤ 15 檔） |
+| 08:55 | Briefing | [策略簡報鎖定](docs/briefing.md)（Bias 決策樹） |
+| 09:00–12:30 | Phase 2 | [盤中監控](docs/scoring.md)（每 10s tick：VWAP + 爆量偵測 + 雙 tick 確認 + 評分） |
 | 11:30 | Phase 3 | 停止新空單訊號 |
 | 12:30 | Phase 3 | 警示不再開倉 |
 | 13:00 | Phase 3 | 硬停多單新訊號 + 空單強制回補 |
@@ -155,7 +155,11 @@ config/
   scoring.yaml    訊號評分表（§8.2）
   scheduler.yaml  交易日排程（§18.2）
 docs/
-  api.md          TS API 參考（給庫開發者）
+  api.md            TS API 參考（給庫開發者）
+  pre-market.md     盤前選股邏輯（Phase 0 + Phase 1）
+  briefing.md       策略簡報（Tactical Briefing）
+  scoring.md        盤中監控與四條件評分
+  priority-ranking.md  Priority Ranking 排序 + 風控審核
 logs/             執行日誌（LOG_DIR）
 data/historical_1m/ 回測歷史 1 分 K（DATA_DIR）
 ```
@@ -169,15 +173,15 @@ data/historical_1m/ 回測歷史 1 分 K（DATA_DIR）
 
 | 能力 | 說明 | 對應模組 |
 |------|------|----------|
-| **盤前選股** | Phase 0 就緒檢查 + Phase 1 三路徑選股、去重、watchlist ≤ 15 檔 | `pre_market/` |
+| **盤前選股** | Phase 0 就緒檢查 + Phase 1 三路徑選股、去重、watchlist ≤ 15 檔 | `pre_market/` · [詳見](docs/pre-market.md) |
 | **多空傾向鎖定** | Bias Decision Tree：盤前把方向決策樹鎖定成白名單狀態檔 | `bias/` |
-| **盤中監控** | 每 10s tick：VWAP + 爆量偵測 + 雙 tick 確認 + 四條件評分 | `engine/` |
+| **盤中監控** | 每 10s tick：VWAP + 爆量偵測 + 雙 tick 確認 + 四條件評分 | `engine/` · [詳見](docs/scoring.md) |
 | **做多策略** | VWAP_SURGE_LONG：爆量突破 VWAP 進場，尾盤強平 | `engine/` |
 | **做空策略** | BULL_TRAP_VWAP_SHORT：假突破回補做空，13:00 強制回補 | `engine/` |
 | **風控系統** | 單筆風險比例、最大持倉數、每日最大虧損、族群上限 | `risk/` |
-| **優先權派單** | Rank Score 排序 + Tier 資金分配 + 同族群 40% 上限 + 競爭搶單 | `execution/` |
+| **優先權派單** | Rank Score 排序 + Tier 資金分配 + 同族群 40% 上限 + 競爭搶單 | `execution/` · [詳見](docs/priority-ranking.md) |
 | **紙上交單** | 模擬成交 + 滑價驗證，不碰真實帳戶 | `execution/paper_trader.ts` |
-| **戰術簡報** | Tactical Briefing：盤前把 bias + 風控參數結構化輸出 | `briefing/` |
+| **戰術簡報** | Tactical Briefing：盤前把 bias + 風控參數結構化輸出 | `briefing/` · [詳見](docs/briefing.md) |
 | **交易日誌** | 績效指標 + 交易日誌（Phase 4 盤後統計） | `metrics/` |
 | **LLM 檢討報告** | 收盤後自動生成檢討報告，Schema 驗證 + 白名單防幻覺 | `llm/` |
 | **事件回放** | 決策可逐筆追溯（signal → 進場 → 平倉全鏈路） | `logging/` + `tools/` |
@@ -215,3 +219,14 @@ DayBrain 本體是「**決策引擎**」——它算訊號、管風險、記帳�
 ---
 
 規格書：`~/tasks/tw-quant-daybrain/tw-quant-daybrain-v2_1.md`
+
+## License
+
+本專案採用 **Apache License 2.0** 授權。
+
+- 完整授權條款見 [`LICENSE`](LICENSE)（專案根目錄）
+- Apache-2.0 官方條款：<https://www.apache.org/licenses/LICENSE-2.0>
+- 版權與貢獻者資訊以 LICENSE 檔案為準
+
+> 本專案為研究/模擬用途，授權條款不構成任何投資建議或保證；
+> 使用/修改/再散佈前請詳閱 LICENSE 全文。
