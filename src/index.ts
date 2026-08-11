@@ -3,6 +3,10 @@ import { JsonLogger } from './logging/logger.js';
 import { EventLogger } from './logging/event_logger.js';
 import { runSingleProcess, createContext } from './ops/single_process.js';
 import { todayInTaipei, hhmmInTaipei, isoInTaipei } from './utils/time.js';
+import { McpClient } from './mcp/client.js';
+import { TradingCalendar } from './scheduler/trading_calendar.js';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 
 /**
  * 單進程部署入口（T001 最小啟動 → T014 升級）
@@ -54,6 +58,35 @@ export async function main(): Promise<void> {
   process.on('SIGINT', onSignal);
   process.on('SIGTERM', onSignal);
 
+  // 監控 shutdown marker file（緊急關閉機制）
+  const shutdownMarker = join(env.LOG_DIR, '.shutdown');
+  const checkShutdown = () => {
+    if (existsSync(shutdownMarker)) {
+      logger.info('shutdown_marker_detected', { at: isoInTaipei(new Date()) });
+      ctx.cancel();
+    }
+  };
+  // 每 2 秒檢查一次
+  const shutdownChecker = setInterval(checkShutdown, 2_000);
+  shutdownChecker.unref();
+
+  const calendar = new TradingCalendar({ cacheDir: env.LOG_DIR });
+  const loadCalendar = async () => {
+    // 優先讀快取，失效時透過 MCP 取得交易日曆（公開 load() 已處理快取/刷新邏輯）
+    const preClient = new McpClient({
+      serverBin: env.MCP_SERVER_BIN,
+      transport: env.MCP_TRANSPORT as 'stdio',
+    });
+    try {
+      await preClient.connect();
+      const { data } = await preClient.call('get_trading_calendar', {});
+      const cal = data as { year: number; trading_days: string[]; holidays?: Array<{ date: string; name?: string }> };
+      return calendar.load(async () => cal, false);
+    } finally {
+      await preClient.close();
+    }
+  };
+
   try {
     const result = await runSingleProcess(
       {
@@ -62,6 +95,7 @@ export async function main(): Promise<void> {
         scoringRaw: config.scoring,
         logger,
         eventLogger,
+        loadCalendar,
       },
       ctx,
     );

@@ -70,6 +70,7 @@ export class McpCallError extends Error {
 
 export class McpClient {
   private client: Client | null = null;
+  private transport: StdioClientTransport | null = null;
   private readonly opts: Required<Omit<McpClientOptions, 'onEvent'>> & {
     onEvent?: McpClientOptions['onEvent'];
   };
@@ -130,12 +131,13 @@ export class McpClient {
       { name: 'tw-quant-daybrain', version: '0.1.0' },
       { capabilities: {} },
     );
-    await client.connect(transport);
+     await client.connect(transport);
 
     // tools/list handshake 驗證
     const { tools } = await client.listTools();
     this.availableTools = new Set(tools.map((t) => t.name));
     this.client = client;
+    this.transport = transport; // 保存 transport 引用以便強制清理
     this.emit({ kind: 'connected', toolCount: tools.length });
   }
 
@@ -170,6 +172,32 @@ export class McpClient {
 
   /** 關閉連線 */
   async close(): Promise<void> {
+    // 強制關閉 transport 並殺掉 child process
+    if (this.transport) {
+      try {
+        const proc = (this.transport as any)._process as {
+          kill?: (sig: string) => void;
+          stdin?: { destroy: () => void };
+          stdout?: { destroy: () => void };
+          stderr?: { destroy: () => void };
+        } | undefined;
+        // 先殺掉 child process
+        proc?.kill?.('SIGKILL');
+        // 再摧毀 stdio pipes（SDK close 可能未清理）
+        proc?.stdin?.destroy?.();
+        proc?.stdout?.destroy?.();
+        proc?.stderr?.destroy?.();
+      } catch {
+        // ignore
+      }
+      const transportToClose = this.transport;
+      this.transport = null;
+      try {
+        await transportToClose.close();
+      } catch {
+        // ignore
+      }
+    }
     try {
       await this.client?.close();
     } catch {

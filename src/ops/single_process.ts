@@ -185,10 +185,15 @@ export async function runSingleProcess(
 
   if (connected) {
     try {
-      await client.close();
-    } catch {
-      // 忽略關閉錯誤
+      await Promise.race([
+        client.close(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('MCP close timeout')), 3000)),
+      ]);
+    } catch (err) {
+      logger.warn('mcp_close_failed', { error: err instanceof Error ? err.message : String(err) });
     }
   }
+  // 不在此 process.exit()：由入口 main() 自然收尾（註冊表移除 + 事件循環清空後自行退出），
+  // 保留 return 供呼叫方記錄 exit 日誌與決定退出碼。
   return { tradingDay: true, shutdownReason: reason, firedPhases };
 }
