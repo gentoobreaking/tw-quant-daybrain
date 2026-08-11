@@ -8,186 +8,84 @@
 - **日誌**：結構化 JSON（事件型，含 ts/type），`LOG_DIR` 可設定
 - **時區**：固定 `Asia/Taipei`，禁止本機時區隱式轉換
 
+> **給誰看**：本 README 是 **CLI / 使用者** 導向。想把 DayBrain 模組嵌進
+> 自己的程式？見 [`docs/api.md`](docs/api.md)（TS API 參考）。
+
 ## 快速開始
 
 ```bash
 npm install
 npm run build      # tsc 編譯至 dist/
 npm run test       # node:test 單元測試（離線全綠）
-npm run test:simulate   # 全盤模擬日（fixture 回放 Phase 0→4）
-npm run test:simulate:unit # 模擬/故障注入單元測試
-npm run start        # 單進程部署（交易日自動執行、非交易日休眠；MCP_SERVER_BIN 子程序）
-npm run lint       # tsc --noEmit + eslint
-npm run dev        # tsx 直接執行
-node dist/index.js # 啟動最小進程
 ```
 
-## 目錄結構
+## 你有哪些 CLI 可用
 
-```
-src/
-  mcp/          MCP Client 連線層（T002 ✅）：Envelope 解析、重試、breaker
-  gate/        資料新鮮度守門（T003 ✅）：降級狀態機 NORMAL/STALE/DEGRADED/LOCKOUT
-  bias/         盤前多空傾向鎖定（T016）
-  engine/       策略引擎（T017/T018）；訊號評分模型（T007 ✅）；盤中監控循環（T009 ✅）
-  briefing/     Tactical Briefing 產生器（T019）
-  execution/    下單執行與 Priority Ranking（T010/T020）
-  risk/         風控系統（T008）
-  pre_market/   盤前流程（T006 ✅）：Phase 0 就緒檢查 + Phase 1 三路徑選股
-  metrics/      交易日誌與績效指標（T010 ✅）
-  llm/          LLM 檢討報告（T011 ✅）：Schema 驗證、白名單、llm_offline
-  scheduler/    交易日曆與生命週期排程（T005 ✅）
-  backtest/     回測與參數最佳化（T022-T024）
-  tools/        回放工具（T012 ✅）：決策追溯、滑價驗證、JSON/可讀輸出
-  logging/      結構化 JSON 日誌（T001 ✅）+ 事件日誌與回放（T004 ✅）
-  config/       設定載入（yaml + env 覆寫）
-  utils/        時區等共用工具
-test/
-  mock_mcp_server.ts  mock MCP server（T002 整合測試）
-config/
-  scoring.yaml    訊號評分表（§8.2）
-  scheduler.yaml  交易日排程（§18.2）
-logs/             執行日誌（LOG_DIR）
-data/historical_1m/ 回測歷史 1 分 K（DATA_DIR）
-```
+所有命令都是「一行 + 一個目的」。`npm run start` 是唯一會真實跑交易決策的
+入口；其餘都是**離線工具**（模擬、回測、驗證），不會下單。
 
-## MCP 使用方式
+| 命令 | 做什麼 | 何時用 |
+|------|--------|--------|
+| `npm run start` | 單進程部署：交易日自動執行完整流程、非交易日休眠 | **生產使用**（需 MCP_SERVER_BIN + 設定） |
+| `npm run dev` | 同 start，但用 tsx 直接跑原始碼 | 開發時快速啟動 |
+| `npm run test:simulate` | 模擬盤：用 fixture 劇本回放一整個交易日（Phase 0→4），看引擎按設計運作 | 改動後驗證引擎行為 |
+| `npm run test:simulate:unit` | 模擬/故障注入單元測試（timeout/data_gap/connection_drop） | 驗證故障處理 |
+| `npm run grid-search` | 參數網格搜尋：掃 42 種停損×爆量組合，找獲利高原 | 找參數（非交易日跑） |
+| `npm run wfo` | Walk-Forward 滾動驗證：樣本外檢驗參數是否過擬合 | 驗證參數能不能上線（非交易日跑） |
+| `npm run stress` | 全交易日壓測：10s tick 連續 09:00–13:30（1621 ticks），驗證無遺漏/記憶體穩定 | 部署前壓力測試 |
+| `npm run experiment -- --param volume_surge_threshold --values 3.0,2.5,3.5` | 參數對比實驗：同一參數多組值跑模擬比績效 | 單一參數調校 |
 
-```ts
-import { McpClient } from './src/mcp/client.js';
-const mcp = new McpClient({ serverBin: process.env.MCP_SERVER_BIN });
-await mcp.connect();          // tools/list handshake
-const env = await mcp.call('get_intraday_vwap', { symbol: '2308' });
-// env = { data, _lineage, _chart_meta }（_lineage 供 Freshness Gate）
+> **grid-search / wfo 只掃離線歷史資料，不會下單**；產出的是「參數建議」，
+> 上線前必須經 wfo 樣本外驗證（WFE > 60% 才 PASS）。
+
+## 三種使用情境
+
+### 情境 A：我想讓它每天自動跑（生產）
+
+```bash
+# 1. 設定 .env（MCP_SERVER_BIN、風控參數、資金池…），見 .env.example
+# 2. 編譯 + 啟動
+npm run build
+npm run start
 ```
 
-## 環境變數
+啟動後依 `config/scheduler.yaml` 時間軸自動執行（非交易日休眠）：
 
-全部變數定義於 `src/config/env_defaults.ts`（§17.1 唯一真值），範例見 `.env.example`。
-覆寫方式：`SCORE_THRESHOLD=90 node dist/index.js`。
+### 完整交易日流程
 
-## Freshness Gate 使用方式
+> 以下為整個決策引擎的一天：從啟動 → 盤前 → 盤中 → 強平 → 盤後，
+> 以及非交易日的休眠分支。
 
-```ts
-import { FreshnessGate } from './src/gate/freshness_gate.js';
-const gate = new FreshnessGate({ stalenessMaxSec: Number(process.env.DATA_STALENESS_MAX_SEC) });
-const env = await mcp.call('get_intraday_vwap', { symbol: '2308' });
-const r = gate.check(env, 'INTRADAY_SIGNAL', { symbol: '2308' });
-if (!r.passed) { /* 降級處理：STALE 停訊 / DEGRADED 停新訊 / LOCKOUT 全停 */ }
+```mermaid
+flowchart TD
+    A[啟動 npm run start] --> B{交易日曆判定}
+    B -- 非交易日 --> Z[休眠，不排程任何 Phase]
+    B -- 交易日 --> C[Phase 0 就緒檢查 08:15]
+    C --> D[Phase 1 盤前選股 08:30]
+    D --> E[Briefing 策略簡報鎖定 08:55]
+    E --> F[Phase 2 盤中監控 09:00–12:30]
+    F --> G{每 10s tick}
+    G -- 爆量突破 → 雙 tick 確認 --> H[四條件評分]
+    H -- 評分 ≥ 門檻 --> I[產生 SignalAdvice]
+    I --> J[Priority Ranking 排序 + 風控審核]
+    J --> K[紙上交單/下單]
+    H -- 未達門檻 --> G
+    K --> L{時間點}
+    L -- 11:30 --> M[停新空單]
+    L -- 12:30 --> N[警示不再開倉]
+    L -- 13:00 --> O[硬停多單 + 空單回補]
+    L -- 13:10 --> P[多方強平警告]
+    L -- 13:15 --> Q[最高等級強平提醒]
+    L -- 13:20 --> R[強制全數平倉]
+    M & N & O & P & Q & R --> F
+    R --> S[Phase 4 盤後統計 14:30]
+    S --> T[LLM 檢討報告]
+    T --> U[交易日誌 + 績效指標]
+    U --> V[優雅關閉 / 等翌日]
+    G -- 收盤後 --> V
 ```
 
-## 事件日誌使用方式
-
-```ts
-import { EventLogger } from './src/logging/event_logger.js';
-const events = new EventLogger(process.env.LOG_DIR);
-events.write('signal_issued', { signal_id: 'S1', symbol: '2308', score: 85 });
-const day = events.loadDay('2026-08-10');     // 回放：依 ts 排序
-const chain = events.loadChain('2026-08-10', { signal_id: 'S1' }); // 決策追溯
-```
-
-## 排程器使用方式
-
-```ts
-import { TradingCalendar } from './src/scheduler/trading_calendar.js';
-import { LifecycleScheduler, buildPhaseSchedules } from './src/scheduler/lifecycle_scheduler.js';
-import { EventLogger } from './src/logging/event_logger.js';
-import { loadYamlFile } from './src/config/index.js';
-
-// 1. 交易日判定（get_trading_calendar 快取於 LOG_DIR/calendar.json）
-const cal = new TradingCalendar({ cacheDir: env.LOG_DIR });
-await cal.load(() => mcp.call('get_trading_calendar', {}).then((e) => e.data));
-if (!cal.isTradingDay()) { /* 非交易日休眠：不排程任何 Phase */ }
-
-// 2. 排程表（config/scheduler.yaml 為真值 + NO_ENTRY_AFTER/FORCE_CLOSE_AT 覆寫）
-const raw = loadYamlFile(process.cwd(), 'scheduler.yaml');
-const phases = buildPhaseSchedules(raw, { noEntryAfter: env.NO_ENTRY_AFTER, forceCloseAt: env.FORCE_CLOSE_AT });
-const scheduler = new LifecycleScheduler(phases, {
-  eventLogger: events,
-  onTick: (phase, tick, now) => { /* Phase 2 每 10s：VWAP + 爆量偵測 */ },
-  onPhase3Trigger: (phase, now) => { /* 11:30/12:30/13:00/13:10/13:15/13:20 時間規則 */ },
-  onPhase: (phase, now) => { /* Phase 0/1/4 */ },
-});
-
-// 3. 主迴圈：每 10s 檢查一次
-for (;;) { scheduler.checkAndFire(); await sleep(10_000); }
-```
-
-## 盤前流程使用方式
-
-```ts
-import { Phase0ReadyCheck } from './src/pre_market/phase0.js';
-import { Phase1Selector } from './src/pre_market/phase1.js';
-
-// Phase 0（08:15）：連線驗證 + 前一日盤後預熱
-const p0 = new Phase0ReadyCheck({
-  listTools: () => mcp.listTools(),
-  mcpCall: (t, a) => mcp.call(t, a),
-  gate: (env, scope, opt) => gate.check(env, scope, opt),
-});
-const ready = await p0.run(); // { connectionReady, dataGaps, warmup }
-
-// Phase 1（08:30）：三路徑選股 → 過濾 → 候選清單 3–5 檔 → set_active_watchlist
-const p1 = new Phase1Selector({
-  mcpCall: (t, a) => mcp.call(t, a),
-  gate: (env, scope, opt) => gate.check(env, scope, opt),
-  today: todayInTaipei(),
-  yesterday: previousTradingDay(),
-});
-const report = await p1.run(); // { candidates, watchlist, lowSignalDay, dataGaps }
-```
-
-## 訊號評分使用方式
-
-```ts
-import { SignalScoringEngine, TickConfirmer, loadScoringConfigFromFile } from './src/engine/scoring.js';
-
-const cfg = loadScoringConfigFromFile(process.cwd()); // config/scoring.yaml（scoring_version 寫入每筆評分）
-const engine = new SignalScoringEngine(cfg, { neutralFlexible: bias === 'NEUTRAL_FLEXIBLE' });
-
-const result = engine.score({
-  direction: 'LONG', price, vwap, volumeSurgeRatio,
-  dayHigh, dayLow15m, taifexTrend, distanceToLimitUpPct, dayGainPct, restriction,
-});
-// { total, breakdown: { level, volume, breakout, market, veto_penalty }, grade, veto_reasons, shouldEnter, scoring_version }
-
-// 雙 tick 確認（§4 Phase 2）：兩次 tick 確認後才進入完整評分
-const tick = new TickConfirmer(2);
-if (tick.confirm(symbol)) { /* 進入完整評分 */ }
-if (tick.isExpired(symbol, cfg.behavior.signal_expiry_min)) { /* 過期重評 */ }
-```
-
-## 任務狀態
-
-- [x] T001 專案初始化與設定骨架
-- [x] T002 MCP Client 連線層
-- [x] T003 資料新鮮度守門
-- [x] T004 事件日誌與回放
-- [x] T005 交易日曆與生命週期排程器
-- [x] T006 盤前流程（Phase 0 + Phase 1 選股）
-- [x] T007 訊號評分模型（Config-Driven，§8）
-- [x] T008 風控系統與持倉狀態機（§11）
-- [x] T009 盤中監控循環（§4 Phase 2 + Phase 3）
-- [x] T010 交易日誌與績效指標（§14.4/§15）
-- [x] T011 LLM 檢討報告與防幻覺（§16）
-- [x] T012 回放工具與滑價驗證（§1 原則 5）
-- [x] T013 測試策略與模擬盤（Mock MCP Server + 模擬日 + 故障注入 + 回測 fixtures）
-- [x] T014 部署與營運（單進程 + 子程序 MCP + 紙上交單 + headless + 優雅關閉）
-- [x] T015 壓測與發布（全交易日壓測 + 參數實驗 + 附錄 A 對齊 + 契約相容 CI；v2.0 tag 待 T016–T024 完成）
-- [x] T016 盤前多空傾向鎖定（Bias Decision Tree，§5；對齊 tw-quant-mcp v1.3 實際契約）
-- [x] T017 做多策略引擎（VWAP_SURGE_LONG，§6）
-- [x] T018 空方策略引擎（BULL_TRAP_VWAP_SHORT，§7）
-- [x] T019 盤前戰術報告產生器（Tactical Briefing，§9）
-- [x] T020 優先權排序引擎（Priority Ranking Engine，§10）
-- [x] T021 回測資料載入器（CsvDataLoader，§12.3）
-- [x] T022 事件驅動回測模擬器（§12）
-- [x] T023 參數網格搜尋（§13.1）
-- [x] T024 Walk-Forward Optimization（§13.3）
-
-## 交易日排程（§18.2）
-
-交易日自動執行以下時序（非交易日休眠；`config/scheduler.yaml` 為真值，
-`NO_ENTRY_AFTER` / `FORCE_CLOSE_AT` 環境變數可覆寫）：
+> mermaid 在部分 Markdown 檢視器需外掛；若看不到圖，表格即為同一流程的文字版。
 
 | 時間 | Phase | 動作 |
 |------|-------|------|
@@ -203,12 +101,110 @@ if (tick.isExpired(symbol, cfg.behavior.signal_expiry_min)) { /* 過期重評 */
 | 13:20 | Phase 3 | 強制全數平倉（FORCE_CLOSE_AT） |
 | 14:30 | Phase 4 | 盤後統計 + 交易日誌 |
 
-## 壓測與參數實驗（T015）
+優雅關閉：`SIGINT`/`SIGTERM` 或 `LOG_DIR/.shutdown` marker 檔 → 取消排程並
+自然收尾（MCP close 帶 3 秒超時 + 子程序強殺）。
+
+### 情境 B：我想看引擎今天會怎麼做（模擬盤）
 
 ```bash
-npm run stress   # 全交易日壓測：10s tick 連續 09:00–13:30（1621 ticks，驗證無遺漏/記憶體穩定）
-npm run experiment -- --param volume_surge_threshold --values 3.0,2.5,3.5  # 參數對比
+npm run test:simulate
 ```
+
+用 fixture 劇本（爆量突破→觸發→停利）回放一整個交易日，輸出人話化階段報告：
+盤前自檢 → 選股 → 盤中訊號（含執行計劃：進場/停損/目標/RR/倉位）→ 尾盤強平
+→ 盤後統計。引擎行為可逐筆回放（`src/tools/replay.ts`，見 docs/api.md）。
+
+> 模擬盤驗證的是「引擎按設計運作」✅，不是「策略能賺錢」⏳——後者需要
+> 真實多月歷史 1 分 K（`data/historical_1m/`）才有資格談。
+
+### 情境 C：我想找/驗證策略參數（回測）
+
+```bash
+npm run grid-search                        # 找獲利高原（42 組合）
+npm run wfo                                # 樣本外驗證（WFE 判定）
+npm run experiment -- --param volume_surge_threshold --values 3.0,2.5,3.5
+```
+
+三階段落差：grid-search 掃出候選參數 → wfo 用「調參期間/驗證期間」滾動窗口
+做樣本外檢驗（WFE > 60% PASS、< 30% OVERFIT 絕不上線）→ experiment 對單一
+參數做對比實驗。回測全部使用 `data/historical_1m/` 離線資料，不觸碰實盤。
+
+## 目錄結構
+
+```
+src/
+  mcp/          MCP Client 連線層（T002 ✅）：Envelope 解析、重試、breaker
+  gate/        資料新鮮度守門（T003 ✅）：降級狀態機 NORMAL/STALE/DEGRADED/LOCKOUT
+  bias/        盤前多空傾向鎖定（T016）
+  engine/      策略引擎（T017/T018）；訊號評分模型（T007 ✅）；盤中監控循環（T009 ✅）
+  briefing/    Tactical Briefing 產生器（T019）
+  execution/   下單執行與 Priority Ranking（T010/T020）
+  risk/        風控系統（T008）
+  pre_market/  盤前流程（T006 ✅）：Phase 0 就緒檢查 + Phase 1 三路徑選股
+  metrics/     交易日誌與績效指標（T010 ✅）
+  llm/         LLM 檢討報告（T011 ✅）：Schema 驗證、白名單、llm_offline
+  scheduler/   交易日曆與生命週期排程（T005 ✅）
+  backtest/    回測與參數最佳化（T022-T024）
+  tools/       回放工具（T012 ✅）：決策追溯、滑價驗證、JSON/可讀輸出
+  logging/     結構化 JSON 日誌（T001 ✅）+ 事件日誌與回放（T004 ✅）
+  config/      設定載入（yaml + env 覆寫）
+  utils/       時區等共用工具
+test/
+  mock_mcp_server.ts  mock MCP server（T002 整合測試）
+config/
+  scoring.yaml    訊號評分表（§8.2）
+  scheduler.yaml  交易日排程（§18.2）
+docs/
+  api.md          TS API 參考（給庫開發者）
+logs/             執行日誌（LOG_DIR）
+data/historical_1m/ 回測歷史 1 分 K（DATA_DIR）
+```
+
+## 環境變數
+
+全部變數定義於 `src/config/env_defaults.ts`（§17.1 唯一真值），範例見 `.env.example`。
+覆寫方式：`SCORE_THRESHOLD=90 node dist/index.js`。
+
+## 功能總覽
+
+| 能力 | 說明 | 對應模組 |
+|------|------|----------|
+| **盤前選股** | Phase 0 就緒檢查 + Phase 1 三路徑選股、去重、watchlist ≤ 15 檔 | `pre_market/` |
+| **多空傾向鎖定** | Bias Decision Tree：盤前把方向決策樹鎖定成白名單狀態檔 | `bias/` |
+| **盤中監控** | 每 10s tick：VWAP + 爆量偵測 + 雙 tick 確認 + 四條件評分 | `engine/` |
+| **做多策略** | VWAP_SURGE_LONG：爆量突破 VWAP 進場，尾盤強平 | `engine/` |
+| **做空策略** | BULL_TRAP_VWAP_SHORT：假突破回補做空，13:00 強制回補 | `engine/` |
+| **風控系統** | 單筆風險比例、最大持倉數、每日最大虧損、族群上限 | `risk/` |
+| **優先權派單** | Rank Score 排序 + Tier 資金分配 + 同族群 40% 上限 + 競爭搶單 | `execution/` |
+| **紙上交單** | 模擬成交 + 滑價驗證，不碰真實帳戶 | `execution/paper_trader.ts` |
+| **戰術簡報** | Tactical Briefing：盤前把 bias + 風控參數結構化輸出 | `briefing/` |
+| **交易日誌** | 績效指標 + 交易日誌（Phase 4 盤後統計） | `metrics/` |
+| **LLM 檢討報告** | 收盤後自動生成檢討報告，Schema 驗證 + 白名單防幻覺 | `llm/` |
+| **事件回放** | 決策可逐筆追溯（signal → 進場 → 平倉全鏈路） | `logging/` + `tools/` |
+| **資料新鮮度守門** | NORMAL/STALE/DEGRADED/LOCKOUT 降級狀態機，壞資料不進決策 | `gate/` |
+| **參數最佳化** | Grid Search（找高原）+ WFO（樣本外驗證）防過擬合 | `backtest/` |
+| **自動排程** | 交易日曆 + 生命週期排程，非交易日自動休眠 | `scheduler/` |
+
+> 詳細 API 見 [`docs/api.md`](docs/api.md)。
+
+## 應用情境與可整合方向
+
+DayBrain 本體是「**決策引擎**」——它算訊號、管風險、記帳、自我檢討，但**不主動送單到券商**。
+可以當核心，接各種周邊；也可以拆模組單獨用。
+
+| 環境 / 結合對象 | 怎麼用 | 要自己做什麼 |
+|----------------|--------|-------------|
+| **實盤下單**（券商 API） | 把 `signal_issued` / `position_opened` 事件接到券商下單 API（如永豐 Shioaji、群益 API） | 建轉接層：事件 → 下單指令；實盤前先用紙上交單對齊 |
+| **模擬競賽 / 回測平台** | 用 `CsvDataLoader` 餵歷史資料，`DayBrainBacktestSimulator` 重放整日決策 | 準備多月份 1 分 K 歷史資料 |
+| **Telegram / Line 通知** | 把 `system_shutdown`、`force_flat_final` 等紀律事件推送到手機，隨時知道引擎狀態 | 接 webhook（專案無內建推送） |
+| **LLM 投顧助理** | 收盤後的 `LLMReport` 當作 AI 投顧素材，或餵給另一個 LLM 做盤前摘要 | 接 LLM provider（llm_offline 可離線降級） |
+| **回測研究管線** | grid-search → wfo → 參數漂移監控，形成「參數健康檢查」流程 | 定期跑 CLI + 記錄報告 |
+| **多人研究協作** | 事件日誌 JSON Lines 格式 → 可匯入資料庫 / BI 工具分析 | 建 ETL 匯入自有分析棧 |
+| **演算法競賽 / 教學** | 模組化 TypeScript 設計 + 完整測試，可當量化交易教學骨架 | 無 |
+| **雲端部署**（Docker / VM） | `npm run start` 無頭執行，`LOG_DIR` 掛 volume 持久化 | 包 Dockerfile + 設定 cron 自動重啟 |
+| **策略研究**（內部） | 用 `experiment` 做單一參數對比，用 `stress` 驗證穩定性 | 無 |
+
+> 專案目前為**研究/模擬用途**（paper trading），接實盤前請自行評估風險與法規。
 
 ## 免責聲明
 
