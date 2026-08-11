@@ -412,6 +412,13 @@ export class IntradayLoop {
         symbol: a.symbol,
         score: a.score,
         grade: a.grade,
+        strategy: a.strategy,
+        // 執行計劃（§6.5）：進場/目標/停損/風險報酬比/倉位，供模擬盤與回放檢視
+        recommended_entry: a.recommended_entry,
+        target_price: a.target_price,
+        stop_loss_price: a.stop_loss_price,
+        rr_ratio: a.rr_ratio,
+        position_size_shares: a.position_size_shares,
       }, this.nowFn());
     }
 

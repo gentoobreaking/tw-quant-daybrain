@@ -284,18 +284,154 @@ export async function simulateCli(args: string[]): Promise<number> {
 
   try {
     const r = await runSimulation({ fixturePath, fault });
-    console.log(`===== 模擬日：${r.date}（${r.scenario}）=====`);
+    console.log('');
+    console.log(`📅 模擬交易日：${r.date}`);
+    console.log(`🎬 情境：${r.scenario}`);
+    console.log('');
     for (const p of r.phases) {
-      console.log(`  Phase ${p.phase} @${p.at}: ${p.ok ? 'OK' : 'FAIL'} — ${p.detail}`);
+      console.log(`  ${phaseEmoji(p.phase)} ${phaseLabel(p.phase)}（${p.at}）`);
+      console.log(`      ${p.ok ? '✅ 正常' : '❌ 失敗'}：${phaseHumanDetail(p)}`);
     }
-    console.log(`訊號 ${r.signals} 筆、事件 ${r.events.length} 筆`);
+    console.log('');
+    console.log(`📊 本日總結：產生 ${r.signals} 筆交易訊號、${r.events.length} 筆系統事件`);
+    const signalEvents = r.events.filter((e: any) => (e as any).type === 'signal_issued');
+    if (signalEvents.length > 0) {
+      console.log('');
+      console.log('🎯 本日交易訊號：');
+      for (const e of signalEvents) {
+        const ev = e as any;
+        const line = `      • ${ev.ts?.slice(11, 16)} ${ev.symbol}：${signalGradeLabel(ev.grade)}（評分 ${ev.score}）`;
+        console.log(line);
+        if (ev.recommended_entry) {
+          const plan = `         進場 ${fmtPrice(ev.recommended_entry)}｜停損 ${fmtPrice(ev.stop_loss_price)}｜目標 ${fmtPrice(ev.target_price)}｜風險報酬比 ${ev.rr_ratio}｜倉位 ${ev.position_size_shares ?? '?'} 股`;
+          console.log(plan);
+          if (ev.reason) console.log(`         理由：${ev.reason}`);
+        }
+      }
+    }
+    const otherEvents = r.events.filter((e: any) => (e as any).type !== 'signal_issued');
+    if (otherEvents.length > 0) {
+      console.log('');
+      console.log('📋 系統事件：');
+      for (const e of otherEvents) {
+        const ev = e as any;
+        console.log(`      • ${ev.ts?.slice(11, 16)} ${eventLabel(ev.type)}${ev.detail ? '：' + ev.detail : ''}${ev.trigger ? `（${ev.trigger}）` : ''}`);
+      }
+    }
     if (r.warnings.length > 0) {
-      console.log('警示：');
-      for (const w of r.warnings) console.log(`  - ${w}`);
+      console.log('');
+      console.log('⚠️  需要留意的警示：');
+      for (const w of r.warnings) console.log(`      • ${warningHuman(w)}`);
     }
+    console.log('');
     return 0;
   } catch (err) {
     console.error(`模擬失敗: ${(err as Error).message}`);
     return 1;
   }
+}
+
+/** 各階段的人話標題 */
+function phaseLabel(phase: number): string {
+  switch (phase) {
+    case 0: return '盤前自檢（Phase 0）';
+    case 1: return '盤前選股（Phase 1）';
+    case 2: return '盤中監控（Phase 2）';
+    case 3: return '尾盤強制平倉（Phase 3）';
+    case 4: return '盤後統計（Phase 4）';
+    default: return `階段 ${phase}`;
+  }
+}
+
+function phaseEmoji(phase: number): string {
+  switch (phase) {
+    case 0: return '🔌';
+    case 1: return '🔍';
+    case 2: return '📡';
+    case 3: return '🧹';
+    case 4: return '📝';
+    default: return '•';
+  }
+}
+
+/** 各階段細節 → 人話 */
+function phaseHumanDetail(p: { phase: number; ok: boolean; detail: string }): string {
+  if (!p.ok) return p.detail;
+  switch (p.phase) {
+    case 0:
+      return '資料服務連線檢查完成：所有必要工具已就緒，可以開工。';
+    case 1:
+      return `完成選股，挑出 ${candidatesFromDetail(p.detail)} 檔候選標的。`;
+    case 2:
+      return `盤中掃描完成，共觸發 ${signalsFromDetail(p.detail)} 筆交易訊號。`;
+    case 3:
+      return '強制平倉檢查完成：所有未平倉部位已在尾盤前處理，避免隔夜風險。';
+    case 4:
+      return '盤後統計就緒：本日交易可回放、可寫入績效日誌。';
+    default:
+      return p.detail;
+  }
+}
+
+/** 從 detail 字串抽出候選數（例：candidates=2） */
+function candidatesFromDetail(detail: string): string {
+  const m = detail.match(/candidates=(\d+)/);
+  if (m) {
+    const n = Number(m[1]);
+    return n === 0 ? '0' : String(n);
+  }
+  return '?';
+}
+
+/** 從 detail 字串抽出訊號數（例：signals=2） */
+function signalsFromDetail(detail: string): string {
+  const m = detail.match(/signals=(\d+)/);
+  if (m) return m[1];
+  return '?';
+}
+
+/** 警示訊息 → 人話 */
+function warningHuman(w: string): string {
+  if (w.includes('低訊號日')) return '今天市場行情偏冷，選股器只挑出不到 3 檔合格標的——引擎選擇空手等待，不為交易而交易。';
+  if (w.includes('資料缺口')) return '部分資料取得不完整，相關訊號已暫停，避免用不完整資料做決策。';
+  if (w.includes('逾時')) return '資料服務回應逾時，本次掃描降級處理，不影響系統安全。';
+  return w;
+}
+
+
+/** 訊號評分 → 人話 */
+function signalGradeLabel(grade: string): string {
+  switch (grade) {
+    case 'STRONG_BUY': return '強力做多訊號';
+    case 'STRONG_SELL': return '強力放空訊號';
+    case 'WATCH': return '觀察訊號（僅記錄）';
+    default: return grade ?? '訊號';
+  }
+}
+
+/** 事件型別 → 人話 */
+function eventLabel(type: string): string {
+  switch (type) {
+    case 'phase_end': return '階段結束';
+    case 'phase_start': return '階段開始';
+    case 'signal_triggered': return '訊號觸發進場';
+    case 'signal_expired': return '訊號過期';
+    case 'position_opened': return '開倉';
+    case 'position_closed': return '平倉';
+    case 'freshness_gate_pass': return '資料新鮮度檢查通過';
+    case 'freshness_gate_fail': return '資料新鮮度檢查失敗';
+    case 'daily_lockout': return '觸發日虧損上限，停手';
+    case 'bias_locked': return '盤前多空傾向鎖定';
+    case 'briefing_generated': return '盤前戰術報告已產生';
+    case 'priority_ranked': return '派單優先權排序完成';
+    case 'system_shutdown': return '系統關閉';
+    default: return type;
+  }
+}
+
+
+/** 價格格式化（兩位小數，千分位） */
+function fmtPrice(v: number): string {
+  if (v == null || Number.isNaN(v)) return '?';
+  return v.toLocaleString('zh-TW', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }

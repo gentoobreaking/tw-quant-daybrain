@@ -204,34 +204,44 @@ export async function runWfoCli(dataDir?: string): Promise<WfoReport> {
   const loader = new CsvDataLoader({ volumeUnit: 'LOTS' });
   const marketDataMap = await loader.loadDirectory(dir);
 
-  console.log('🚀 啟動 Walk-Forward Optimization (WFO)...');
+  console.log('');
+  console.log('🧪 Walk-Forward 滾動驗證（WFO）開始');
   const months = new Set<string>();
   for (const bars of marketDataMap.values()) bars.forEach((b) => months.add(b.datetime.substring(0, 7)));
-  console.log(`資料: ${marketDataMap.size} 檔標的 / ${months.size} 個月（${Array.from(months).sort().join(', ')}）`);
-  console.log(`滾動視窗: IS ${3} 個月 + OOS ${1} 個月（需要至少 4 個月資料）`);
+  const monthsList = Array.from(months).sort();
+  console.log(`  資料：${marketDataMap.size} 檔標的 / ${months.size} 個月（${monthsList.join(', ')}）`);
+  console.log(`  方式：每 3 個月調參 → 下 1 個月驗證（樣本外），滾動前進`);
 
   if (months.size < 4) {
-    console.warn('⚠️ 樣本月份不足 4 個月，無法形成任何 WFO 窗口（fixtures 僅 1 個月）。請提供多月份歷史資料。');
+    console.log('');
+    console.log('⚠️ 樣本月份不足（需要至少 4 個月，目前只有 ' + months.size + ' 個月）');
+    console.log('   意思：沒有足夠的歷史資料來做「先調參、再驗證」的滾動測試。');
+    console.log('   這不代表策略好壞——是「還沒資格被驗證」。請先準備多月份的 1 分 K 歷史資料。');
+    console.log('');
+    return { windowResults: [], totalOosPnlNtd: 0, wfoEfficiencyRatio: 0, wfeVerdict: 'INCONCLUSIVE', parameterStability: { status: 'DANGEROUS', detail: '樣本月份不足，無法驗證（不代表策略差，是資料不夠）', stopLossSequence: [], surgeSequence: [] } } as WfoReport;
   }
 
   const optimizer = new WalkForwardOptimizer(3, 1);
   const report = await optimizer.runWfo(marketDataMap);
 
-  console.log('\n📊 WFO 窗口結果:');
+  console.log('');
+  console.log('📊 各窗口驗證結果（每個窗口：前 3 個月調參 → 下 1 個月用沒看過的資料驗證）:');
   console.table(report.windowResults.map((w) => ({
     '窗口': `W${w.windowId}`,
-    'IS 範圍': `${w.inSampleRange.start} ~ ${w.inSampleRange.end}`,
-    'OOS 範圍': `${w.outOfSampleRange.start} ~ ${w.outOfSampleRange.end}`,
-    'IS 最佳 SL/Surge': `${w.bestInSampleParams.stopLossPct}% / ${w.bestInSampleParams.surgeMultiplier}x`,
-    'OOS PnL': w.oosPnlNtd.toLocaleString(),
-    'OOS 勝率': `${w.oosWinRatePct}%`,
-    'OOS 交易': w.oosTradesCount,
+    '調參期間 (IS)': `${w.inSampleRange.start} ~ ${w.inSampleRange.end}`,
+    '驗證期間 (OOS)': `${w.outOfSampleRange.start} ~ ${w.outOfSampleRange.end}`,
+    '選用參數 (SL/Surge)': `${w.bestInSampleParams.stopLossPct}% / ${w.bestInSampleParams.surgeMultiplier}x`,
+    '驗證期損益 (NTD)': w.oosPnlNtd.toLocaleString(),
+    '驗證期勝率': `${w.oosWinRatePct}%`,
+    '驗證期交易數': w.oosTradesCount,
   })));
 
-  console.log(`\n累計 OOS 淨利（權益曲線終點）: ${report.totalOosPnlNtd.toLocaleString()} NTD`);
-  console.log(`WFE（OOS 獲利窗口比率）: ${report.wfoEfficiencyRatio}%`);
-  console.log(`WFE 判讀（§13.4）: ${report.wfeVerdict === 'PASS' ? '✅ 過關（>60%）' : report.wfeVerdict === 'OVERFIT' ? '🔴 極度過度擬合（<30%），絕不能上線' : '🟡 持平（30–60%），需更多樣本'}`);
-  console.log(`參數漂移穩定度（§13.4）: ${report.parameterStability.status === 'HEALTHY' ? '🟢 健康（參數穩定）' : '🔴 危險（參數劇烈跳動）'} — ${report.parameterStability.detail}`);
+  console.log('');
+  console.log('📈 總結：');
+  console.log(`   • 累計樣本外淨利：${report.totalOosPnlNtd.toLocaleString()} NTD`);
+  console.log(`   • WFE（獲利窗口比率）：${report.wfoEfficiencyRatio}% —— ` + (report.wfeVerdict === 'PASS' ? '✅ 過關（>60%，策略在多數沒看過的月份都能賺）' : report.wfeVerdict === 'OVERFIT' ? '🔴 極度過度擬合（<30%，只在調參的月份賺，沒看過的月份全虧——絕不能上線）' : '🟡 持平（30–60%，優勢不明確，需要更多樣本再判斷）'));
+  console.log(`   • 參數穩定度：` + (report.parameterStability.status === 'HEALTHY' ? '🟢 健康（滾動期間參數變化小，策略邏輯一致）' : '🔴 危險（滾動期間參數劇烈跳動，代表策略沒有穩定優勢）') + ` — ${report.parameterStability.detail}`);
+  console.log('');
 
   return report;
 }

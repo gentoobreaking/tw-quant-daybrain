@@ -274,39 +274,48 @@ export async function runGridSearchCli(dataDir?: string): Promise<GridSearchRepo
   const loader = new CsvDataLoader({ volumeUnit: 'LOTS' });
   const marketDataMap = await loader.loadDirectory(dir);
 
-  console.log('🚀 啟動 DayBrain 參數網格搜尋 (Grid Search)...');
-  console.log(`資料: ${marketDataMap.size} 檔標的（${Array.from(marketDataMap.values()).reduce((s, b) => s + b.length, 0)} 筆 1 分 K）`);
-  console.log(`搜尋空間: 停損 ${STOP_LOSS_OPTIONS.join('/')}% × 爆量 ${SURGE_OPTIONS.join('/')}x`);
+  console.log('');
+  console.log('🔬 參數網格搜尋（Grid Search）開始');
+  console.log(`  搜尋範圍：停損 ${STOP_LOSS_OPTIONS.join('/')}% × 爆量 ${SURGE_OPTIONS.join('/')}x（共 ${STOP_LOSS_OPTIONS.length * SURGE_OPTIONS.length} 種組合）`);
+  console.log(`  資料：${marketDataMap.size} 檔標的 / ${Array.from(marketDataMap.values()).reduce((s, b) => s + b.length, 0)} 筆 1 分 K`);
 
   const runner = new GridSearchRunner();
   const report = runner.run(marketDataMap);
   process.stdout.write('\n');
 
-  console.log('\n📊 網格搜尋完成！最佳參數組合 Top 5 (依淨利潤排序):');
+  console.log('📊 搜尋完成！獲利最好的 5 組參數（依總利潤排序）:');
   console.table(report.results.slice(0, 5).map((r, index) => ({
     '排名': `#${index + 1}`,
-    '停損 % (SL)': `${r.stopLossPct.toFixed(1)}%`,
-    '爆量倍數 (Surge)': `${r.surgeMultiplier.toFixed(1)}x`,
+    '停損設定': `${r.stopLossPct.toFixed(1)}%`,
+    '爆量門檻': `${r.surgeMultiplier.toFixed(1)}x`,
     '總利潤 (NTD)': r.netTotalPnlNtd.toLocaleString(),
-    '勝率 (%)': `${r.winRatePct}%`,
-    '獲利因子 (PF)': r.profitFactor,
+    '勝率': `${r.winRatePct}%`,
+    '獲利因子': r.profitFactor === Infinity ? '∞(全勝)' : r.profitFactor.toFixed(2),
     '交易次數': r.totalTrades,
   })));
 
+  console.log('');
   if (report.plateau) {
-    console.log(`\n🟢 獲利高原區間（§13.2）: ${report.plateau}`);
+    console.log(`🟢 獲利高原（參數穩健區）：${report.plateau}`);
+    console.log('   意思：這片區域的參數表現接近，不是「剛好矇到一組」——參數在這裡選哪個都不會差太多，比較可信。');
   } else {
-    console.log('\n⚠️ 未偵測到穩定獲利高原（樣本可能不足）');
+    console.log('⚠️ 未偵測到穩定獲利高原（樣本可能不足）');
+    console.log('   意思：好參數是孤立的，換個數據可能就失效——目前的資料量不足以得出可信結論。');
   }
   if (report.islands.length > 0) {
-    console.log('🔴 孤島最佳解警示（§13.2 過度擬合風險）:');
+    console.log('');
+    console.log('🔴 孤島最佳解警示（過度擬合風險）:');
     report.islands.forEach((r) => {
-      console.log(`  - SL ${r.stopLossPct}% × Surge ${r.surgeMultiplier}x: 交易僅 ${r.totalTrades} 次（高原平均顯著更高）`);
+      console.log(`   • 停損 ${r.stopLossPct}% × 爆量 ${r.surgeMultiplier}x：交易僅 ${r.totalTrades} 次（遠低於高原平均）`);
     });
+    console.log('   意思：這幾組雖然利潤高，但樣本太少，很可能是運氣——不建議直接採用。');
   }
   if (report.recommendation) {
-    console.log(`\n✅ 實戰建議（高原中心點）: SL ${report.recommendation.stopLossPct}%, Surge ${report.recommendation.surgeMultiplier}x`);
+    console.log('');
+    console.log(`✅ 實戰建議參數：停損 ${report.recommendation.stopLossPct}% × 爆量 ${report.recommendation.surgeMultiplier}x（取高原中心，避開孤島）`);
   }
-  console.log(`\n執行統計: ${report.meta.totalCombinations} 組合 / ${report.meta.validCombinations} 有效（≥5 交易）/ 標的 ${report.meta.dataSymbols} / K 線 ${report.meta.dataBars} 筆`);
+  console.log('');
+  console.log(`📈 執行統計：${report.meta.totalCombinations} 組全掃 / ${report.meta.validCombinations} 組有效（交易 ≥5 次）/ 標的 ${report.meta.dataSymbols} 檔 / K 線 ${report.meta.dataBars} 筆`);
+  console.log('');
   return report;
 }
