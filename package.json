@@ -28,7 +28,7 @@
     "mcp",
     "typescript"
   ],
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
     "js-yaml": "^4.1.0",
