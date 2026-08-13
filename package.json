@@ -16,6 +16,7 @@
     "test:simulate": "node --import tsx src/simulate/cli.ts",
     "fixture:record": "node --import tsx src/simulate/record_cli.ts",
     "cli": "node --import tsx src/cli.ts",
+    "build:binary": "bash scripts/build-binary.sh",
     "test:simulate:unit": "node --test --import tsx --test-concurrency=1 \"src/simulate/*.test.ts\"",
     "lint": "tsc --noEmit -p tsconfig.json && eslint \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit -p tsconfig.json",

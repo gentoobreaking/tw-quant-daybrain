@@ -49,6 +49,26 @@ npm run cli -- stress --tick-delay 5
 > **grid-search / wfo 只掃離線歷史資料，不會下單**；產出的是「參數建議」，
 > 上線前必須經 wfo 樣本外驗證（WFE > 60% 才 PASS）。
 
+## 打包成單一可執行檔
+
+不想裝 Node/Bun，可打包成**單一執行檔**（內嵌 Bun runtime，macOS arm64）：
+
+```bash
+npm run build:binary          # → dist/daybrain（約 61MB，單檔自含 runtime）
+npm run build:binary -- --release   # 加 --minify 縮小
+```
+
+打包後直接執行，用法與 `npm run cli --` 完全相同：
+
+```bash
+./dist/daybrain help          # 查看命令
+./dist/daybrain simulate      # 模擬盤
+./dist/daybrain fixture:record
+```
+
+> 產物在 `dist/`（gitignore），可複製到任何 arm64 macOS 直接跑，不需 Node/Bun。
+> Linux/Windows 需改 `--target`（bun-linux-x64 / bun-windows-x64）。
+
 ## 三種使用情境
 
 ### 情境 A：我想讓它每天自動跑（生產）
