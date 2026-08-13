@@ -9,6 +9,9 @@ const HELP = `tw-quant-daybrain CLI — 台股當沖決策引擎
   npm run cli -- <command> [options]
 
 命令：
+  start           生產部署：交易日自動執行完整流程、非交易日休眠（T005）
+                  （同 npm run start，需 MCP_SERVER_BIN + 設定）
+  dev             同 start，但用 tsx 直接跑原始碼
   simulate        模擬盤：以 fixture 劇本回放整日 Phase 0→4（T013）
                   --fixture <path>      fixture 檔（預設自動選 testdata/mcp/ 最新日期檔）
                   --fault <mode>        故障注入：timeout|data_gap|connection_drop（預設 none）
@@ -51,6 +54,18 @@ const rest = args.slice(1);
 try {
   let code: number;
   switch (cmd) {
+    case 'start': {
+      const { main } = await import('./index.js');
+      await main();
+      code = 0;
+      break;
+    }
+    case 'dev': {
+      const { main } = await import('./index.js');
+      await main();
+      code = 0;
+      break;
+    }
     case 'simulate': {
       const { simulateCli } = await import('./simulate/simulate.js');
       code = await simulateCli(rest);
