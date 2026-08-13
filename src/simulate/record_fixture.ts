@@ -119,6 +119,7 @@ export function normalizeInstitutional(data: unknown): {
   const buy = rows
     .map((r) => ({
       symbol: String(r.code ?? ''),
+      name: typeof r.name === 'string' ? r.name : undefined,
       foreign_net: num(r.foreign_net),
       investment_trust_net: num(r.investment_net),
       dealer_net: num(r.dealer_net),
@@ -155,7 +156,7 @@ export function normalizeAbnormal(data: unknown): { stocks: Array<{ symbol: stri
 export function normalizeAnnouncements(
   data: unknown,
   max = 200,
-): { announcements: Array<{ symbol: string; title?: string; date?: string }> } {
+): { announcements: Array<{ symbol: string; name?: string; title?: string; date?: string }> } {
   const arr = Array.isArray(data)
     ? data
     : Array.isArray((data as { announcements?: unknown[] } | null)?.announcements)
@@ -166,6 +167,7 @@ export function normalizeAnnouncements(
     .slice(0, max)
     .map((r) => ({
       symbol: String(r.code),
+      name: typeof r.name === 'string' ? r.name : undefined,
       title: typeof r.subject === 'string' ? r.subject : undefined,
       date: typeof r.table_date === 'string' ? r.table_date : undefined,
     }));

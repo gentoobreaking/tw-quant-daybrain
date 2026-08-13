@@ -185,11 +185,14 @@ export async function runSimulation(opts: SimulateOptions): Promise<SimulateResu
     yesterday: '2026-08-07',
   });
   const p1 = await phase1.run();
+  const candidateLabel = p1.candidates
+    .map((c) => (c.name ? `${c.symbol}(${c.name})` : c.symbol))
+    .join(',');
   phaseResults.push({
     phase: 1,
     at: '08:30',
     ok: p1.candidates.length > 0,
-    detail: `candidates=${p1.candidates.length} watchlist=${p1.watchlist.join(',')} lowSignal=${p1.lowSignalDay}`,
+    detail: `candidates=${p1.candidates.length} watchlist=${candidateLabel} lowSignal=${p1.lowSignalDay}`,
   });
   if (p1.lowSignalDay) warnings.push('低訊號日（候選不足 3 檔）');
 
@@ -385,8 +388,11 @@ function phaseHumanDetail(p: { phase: number; ok: boolean; detail: string }): st
   switch (p.phase) {
     case 0:
       return '資料服務連線檢查完成：所有必要工具已就緒，可以開工。';
-    case 1:
-      return `完成選股，挑出 ${candidatesFromDetail(p.detail)} 檔候選標的。`;
+    case 1: {
+      const n = candidatesFromDetail(p.detail);
+      const wl = watchlistFromDetail(p.detail);
+      return `完成選股，挑出 ${n} 檔候選標的${wl.length > 0 ? `：${wl.join('、')}` : '。'}`;
+    }
     case 2:
       return `盤中掃描完成，共觸發 ${signalsFromDetail(p.detail)} 筆交易訊號。`;
     case 3:
@@ -406,6 +412,13 @@ function candidatesFromDetail(detail: string): string {
     return n === 0 ? '0' : String(n);
   }
   return '?';
+}
+
+/** 從 detail 字串抽出候選清單（例：watchlist=1110(東泥),1108(幸福)） */
+function watchlistFromDetail(detail: string): string[] {
+  const m = detail.match(/watchlist=([^\s]+)/);
+  if (!m) return [];
+  return m[1].split(',').filter(Boolean);
 }
 
 /** 從 detail 字串抽出訊號數（例：signals=2） */

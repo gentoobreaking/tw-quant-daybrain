@@ -43,6 +43,9 @@ export interface SelectionPool {
   announcements: string[]; // 重大訊息個股
 }
 
+/** symbol → 名稱查找表（三路徑資料內含 name 時帶入，供候選顯示） */
+export type NameLookup = Map<string, string>;
+
 export const INSTITUTIONAL_TOP_N = 20;
 export const FALLBACK_TOP_N = 30;
 
@@ -82,6 +85,35 @@ export function buildSelectionPool(
   }
 
   return { institutional, abnormal, announcements };
+}
+
+/** 從三路徑原始資料收集 symbol→name（name 存在時） */
+export function collectNames(
+  instData: unknown,
+  abnormalData: unknown,
+  annData: unknown,
+): NameLookup {
+  const names = new Map<string, string>();
+  const inst = instData as { stocks?: Array<{ symbol: string; name?: unknown }> } | Array<{ symbol: string; name?: unknown }>;
+  const instList = Array.isArray(inst) ? inst : inst?.stocks;
+  for (const s of instList ?? []) {
+    if (typeof s.symbol === 'string' && typeof s.name === 'string' && s.name) {
+      names.set(s.symbol, s.name);
+    }
+  }
+  const abn = abnormalData as { stocks?: Array<{ symbol: string; name?: unknown }> };
+  for (const s of abn?.stocks ?? []) {
+    if (typeof s.symbol === 'string' && typeof s.name === 'string' && s.name) {
+      names.set(s.symbol, s.name);
+    }
+  }
+  const ann = annData as { announcements?: Array<{ symbol?: string; name?: unknown }> };
+  for (const a of ann?.announcements ?? []) {
+    if (typeof a.symbol === 'string' && typeof a.name === 'string' && a.name) {
+      names.set(a.symbol, a.name);
+    }
+  }
+  return names;
 }
 
 /** 候選排序：籌碼分（投信+外資淨買超）遞減 */
@@ -167,7 +199,11 @@ export class Phase1Selector {
   }
 
   /** 計算候選（觸發價/停損價/籌碼分/catalyst） */
-  private async buildCandidate(symbol: string, sources: SelectionSource[]): Promise<PreMarketCandidate | null> {
+  private async buildCandidate(
+    symbol: string,
+    sources: SelectionSource[],
+    name?: string,
+  ): Promise<PreMarketCandidate | null> {
     try {
       const prices = await this.opts.priceCalculator(symbol);
       const triggerPrice = prices.yesterdayHigh;
@@ -178,6 +214,7 @@ export class Phase1Selector {
       const flowScore = sources.includes('INSTITUTIONAL') ? 25 : 10;
       return {
         symbol,
+        name,
         direction: 'LONG',
         triggerPrice,
         stopLossPrice,
@@ -216,6 +253,7 @@ export class Phase1Selector {
     const abnEnv = await this.opts.mcpCall('get_abnormal_trading', {});
     const annEnv = await this.opts.mcpCall('get_major_announcements', {});
     const pool = buildSelectionPool(instEnv.data, abnEnv.data, annEnv.data);
+    const names = collectNames(instEnv.data, abnEnv.data, annEnv.data);
 
     // 2. 去重
     let symbols = this.dedupe(pool);
@@ -234,7 +272,7 @@ export class Phase1Selector {
       if (pool.institutional.includes(symbol)) sources.push('INSTITUTIONAL');
       if (pool.abnormal.includes(symbol)) sources.push('ABNORMAL');
       if (pool.announcements.includes(symbol)) sources.push('ANNOUNCEMENT');
-      const cand = await this.buildCandidate(symbol, sources);
+      const cand = await this.buildCandidate(symbol, sources, names.get(symbol));
       if (cand) {
         cand.riskStatus = elig.riskStatus;
         candidates.push(cand);
