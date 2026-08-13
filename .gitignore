@@ -17,3 +17,4 @@ data/
 *.log
 .DS_Store
 coverage/
+testdata/

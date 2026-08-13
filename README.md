@@ -30,6 +30,7 @@ npm run test       # node:test 單元測試（離線全綠）
 | `npm run dev` | 同 start，但用 tsx 直接跑原始碼 | 開發時快速啟動 |
 | `npm run test:simulate` | 模擬盤：用 fixture 劇本回放一整個交易日（Phase 0→4），看引擎按設計運作 | 改動後驗證引擎行為 |
 | `npm run test:simulate:unit` | 模擬/故障注入單元測試（timeout/data_gap/connection_drop） | 驗證故障處理 |
+| `npm run fixture:record` | 連線 tw-quant-mcp 錄製「最新交易日」fixture 至 `testdata/mcp/<date>.json`（盤中/盤後雙模式） | 交易日盤後跑，讓模擬盤跟上市場 |
 | `npm run grid-search` | 參數網格搜尋：掃 42 種停損×爆量組合，找獲利高原 | 找參數（非交易日跑） |
 | `npm run wfo` | Walk-Forward 滾動驗證：樣本外檢驗參數是否過擬合 | 驗證參數能不能上線（非交易日跑） |
 | `npm run stress` | 全交易日壓測：10s tick 連續 09:00–13:30（1621 ticks），驗證無遺漏/記憶體穩定 | 部署前壓力測試 |
@@ -117,6 +118,33 @@ npm run test:simulate
 > 模擬盤驗證的是「引擎按設計運作」✅，不是「策略能賺錢」⏳——後者需要
 > 真實多月歷史 1 分 K（`data/historical_1m/`）才有資格談。
 
+#### 錄製最新交易日 fixture
+
+內建 fixture（`testdata/mcp/intraday.json`）固定為某一歷史交易日（如 2026-08-10）。
+想讓模擬盤跟上市場，可在交易日**盤後**錄製當日 fixture：
+
+```bash
+npm run fixture:record                      # 預設錄「最新交易日」→ testdata/mcp/<date>.json
+npm run test:simulate -- --fixture testdata/mcp/<date>.json
+```
+
+選項：`--date YYYY-MM-DD`（指定日）、`--out <path>`（輸出位置）、
+`--symbols a,b`（覆寫候選股）、`--ticks N`（盤中錄製 tick 數，預設 3）、
+`--tick-gap-ms N`（tick 間隔）、`--server-bin <path>`（覆寫 MCP server）。
+
+行為說明：
+- **盤後錄製**（預設）：錄 Phase 0/1/4（法人買超、注意股、重大訊息、日 K），
+  Phase 2/3 盤中 ticks 不錄（vwap/surge 非交易時段不可用）；watchlist 設定與
+  `scan_daytrade_eligibility` 以當日資料近似合成，模擬重點在盤前選股與盤後統計。
+- **盤中錄製**（09:00–13:20 執行）：額外錄 Phase 2/3 的 vwap/surge 即時回應。
+- 錄製時自動做 v2.1 → daybrain 契約標準化（`_lineage.source` 對齊、Candle[]→candles
+  等），並過濾權證代碼（6 位數）與未註冊 Symbol Registry 的標的。
+- 需要 `.env` 的 `MCP_SERVER_BIN` 指向 tw-quant-mcp 二進位；連線失敗/暫時性
+  registry 未同步會自動重試。
+
+> fixture 的模擬日與資料日期必須一致（FreshnessGate 依此驗證新鮮度），
+> 因此一律以錄製日為準，勿手改日期。
+
 ### 情境 C：我想找/驗證策略參數（回測）
 
 ```bash
@@ -162,6 +190,7 @@ docs/
   priority-ranking.md  Priority Ranking 排序 + 風控審核
 logs/             執行日誌（LOG_DIR）
 data/historical_1m/ 回測歷史 1 分 K（DATA_DIR）
+testdata/mcp/     fixture 劇本（回放用）：intraday.json（固定日）+ <date>.json（fixture:record 錄製）
 ```
 
 ## 環境變數

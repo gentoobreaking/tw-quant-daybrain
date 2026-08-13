@@ -4,7 +4,7 @@
 // - 不連 MCP：以 fixture 檔回放（含「逾時/資料缺口/連線中斷」故障注入）
 // - 驗證：事件日誌與預期決策序列一致（Bias 攔截 + Priority 派單）
 
-import { readFileSync, mkdtempSync } from 'node:fs';
+import { readFileSync, mkdtempSync, readdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -72,6 +72,28 @@ export interface SimulateResult {
 
 function loadFixture(path: string): DayFixture {
   return JSON.parse(readFileSync(path, 'utf-8')) as DayFixture;
+}
+
+/**
+ * 預設 fixture 解析：testdata/mcp/ 下若有「日期命名」的 fixture（<YYYY-MM-DD>.json），
+ * 取日期最大者（最新交易日）；否則退回固定劇本 intraday.json。
+ * 這樣 `npm run test:simulate` 在錄製新 fixture 後會自動用最新日，不需手動帶 --fixture。
+ */
+export function resolveLatestFixture(dir: string): string {
+  const fallback = join(dir, 'intraday.json');
+  let files: string[] = [];
+  try {
+    files = readdirSync(dir);
+  } catch {
+    return fallback;
+  }
+  const dated = files
+    .filter((f) => /^\d{4}-\d{2}-\d{2}\.json$/.test(f))
+    .sort()
+    .reverse();
+  if (dated.length === 0) return fallback;
+  const latest = join(dir, dated[0]);
+  return existsSync(latest) ? latest : fallback;
 }
 
 /** fixture 回放 mcp call（依 tool + args.symbol 比對） */
@@ -278,7 +300,10 @@ export async function runSimulation(opts: SimulateOptions): Promise<SimulateResu
 /** CLI：simulate --fixture <path> [--fault timeout|data_gap|connection_drop] */
 export async function simulateCli(args: string[]): Promise<number> {
   const idx = args.indexOf('--fixture');
-  const fixturePath = idx >= 0 ? args[idx + 1] : join(process.cwd(), 'testdata/mcp/intraday.json');
+  const fixturePath =
+    idx >= 0
+      ? args[idx + 1]
+      : resolveLatestFixture(join(process.cwd(), 'testdata/mcp'));
   const faultIdx = args.indexOf('--fault');
   const fault = (faultIdx >= 0 ? args[faultIdx + 1] : 'none') as FaultMode;
 
