@@ -4,6 +4,9 @@
   "description": "台股當沖 DayBrain — 盤前/盤中/盤後自動化交易決策引擎（TypeScript）",
   "type": "module",
   "main": "dist/index.js",
+  "bin": {
+    "daybrain": "dist/cli.js"
+  },
   "engines": {
     "node": ">=20"
   },
@@ -12,6 +15,7 @@
     "test": "node --test --import tsx --test-concurrency=1 \"src/**/*.test.ts\"",
     "test:simulate": "node --import tsx src/simulate/cli.ts",
     "fixture:record": "node --import tsx src/simulate/record_cli.ts",
+    "cli": "node --import tsx src/cli.ts",
     "test:simulate:unit": "node --test --import tsx --test-concurrency=1 \"src/simulate/*.test.ts\"",
     "lint": "tsc --noEmit -p tsconfig.json && eslint \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit -p tsconfig.json",

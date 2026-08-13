@@ -24,6 +24,16 @@ npm run test       # node:test 單元測試（離線全綠）
 所有命令都是「一行 + 一個目的」。`npm run start` 是唯一會真實跑交易決策的
 入口；其餘都是**離線工具**（模擬、回測、驗證），不會下單。
 
+**統一 CLI**：不想記個別 script，可用單一入口 `npm run cli -- <command>`，
+`npm run cli -- help` 可隨時查看全部命令與參數：
+
+```bash
+npm run cli -- help                 # 查看所有命令與參數
+npm run cli -- simulate             # 等同 npm run test:simulate
+npm run cli -- fixture:record       # 等同 npm run fixture:record
+npm run cli -- stress --tick-delay 5
+```
+
 | 命令 | 做什麼 | 何時用 |
 |------|--------|--------|
 | `npm run start` | 單進程部署：交易日自動執行完整流程、非交易日休眠 | **生產使用**（需 MCP_SERVER_BIN + 設定） |
