@@ -59,7 +59,7 @@ export interface SimulateResult {
   scenario: string;
   scoring_version: string;
   phases: Array<{ phase: number; at: string; ok: boolean; detail: string }>;
-  events: unknown[];
+  events: SimEvent[];
   signals: number;
   warnings: string[];
   logDir: string;
@@ -68,6 +68,23 @@ export interface SimulateResult {
   /** T015：首/末 tick 時間 */
   startAt?: string;
   endAt?: string;
+}
+
+export interface SimEvent {
+  ts?: string;
+  type: string;
+  symbol?: string;
+  grade?: string;
+  score?: number;
+  recommended_entry?: number;
+  stop_loss_price?: number;
+  target_price?: number;
+  rr_ratio?: number;
+  position_size_shares?: number | null;
+  reason?: string;
+  detail?: string;
+  trigger?: string;
+  [key: string]: unknown;
 }
 
 function loadFixture(path: string): DayFixture {
@@ -322,27 +339,27 @@ export async function simulateCli(args: string[]): Promise<number> {
     }
     console.log('');
     console.log(`📊 本日總結：產生 ${r.signals} 筆交易訊號、${r.events.length} 筆系統事件`);
-    const signalEvents = r.events.filter((e: any) => (e as any).type === 'signal_issued');
+    const signalEvents = r.events.filter((e: SimEvent) => e.type === 'signal_issued');
     if (signalEvents.length > 0) {
       console.log('');
       console.log('🎯 本日交易訊號：');
       for (const e of signalEvents) {
-        const ev = e as any;
-        const line = `      • ${ev.ts?.slice(11, 16)} ${ev.symbol}：${signalGradeLabel(ev.grade)}（評分 ${ev.score}）`;
+        const ev = e as SimEvent;
+         const line = `      • ${ev.ts?.slice(11, 16)} ${ev.symbol}：${signalGradeLabel(ev.grade ?? '')}（評分 ${ev.score ?? ''}）`;
         console.log(line);
         if (ev.recommended_entry) {
-          const plan = `         進場 ${fmtPrice(ev.recommended_entry)}｜停損 ${fmtPrice(ev.stop_loss_price)}｜目標 ${fmtPrice(ev.target_price)}｜風險報酬比 ${ev.rr_ratio}｜倉位 ${ev.position_size_shares ?? '?'} 股`;
+          const plan = `         進場 ${fmtPrice(ev.recommended_entry)}｜停損 ${fmtPrice(ev.stop_loss_price ?? 0)}｜目標 ${fmtPrice(ev.target_price ?? 0)}｜風險報酬比 ${ev.rr_ratio ?? '?'}｜倉位 ${ev.position_size_shares ?? '?'} 股`;
           console.log(plan);
           if (ev.reason) console.log(`         理由：${ev.reason}`);
         }
       }
     }
-    const otherEvents = r.events.filter((e: any) => (e as any).type !== 'signal_issued');
+    const otherEvents = r.events.filter((e: SimEvent) => e.type !== 'signal_issued');
     if (otherEvents.length > 0) {
       console.log('');
       console.log('📋 系統事件：');
       for (const e of otherEvents) {
-        const ev = e as any;
+        const ev = e as SimEvent;
         console.log(`      • ${ev.ts?.slice(11, 16)} ${eventLabel(ev.type)}${ev.detail ? '：' + ev.detail : ''}${ev.trigger ? `（${ev.trigger}）` : ''}`);
       }
     }

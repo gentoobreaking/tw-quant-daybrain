@@ -175,7 +175,7 @@ export class McpClient {
     // 強制關閉 transport 並殺掉 child process
     if (this.transport) {
       try {
-        const proc = (this.transport as any)._process as {
+        const proc = (this.transport as unknown as { _process?: unknown })._process as {
           kill?: (sig: string) => void;
           stdin?: { destroy: () => void };
           stdout?: { destroy: () => void };
