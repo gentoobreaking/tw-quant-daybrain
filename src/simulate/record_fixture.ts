@@ -234,6 +234,43 @@ export function normalizeEnvelope(
   return { data, _lineage: lineage, ...(env._chart_meta ? { _chart_meta: env._chart_meta } : {}) };
 }
 
+// ===== 安全呼叫（資料缺口處理） =====
+
+/**
+ * 安全呼叫：MCP tool 回傳 isError 時不丟出，而是回傳空資料 envelope。
+ * 對應 §3.2 降級政策：前一日盤後資料未就緆 → 記錄 data gap，不中斷錄製。
+ * 注意：回傳 envelope 的 _lineage.freshness 為 POST_MARKET_TODAY，回放時
+ * FreshnessGate 會註記，Simulate 僅以 fixture 回放，故不影響。
+ */
+function fallbackEnvelope(tool: string): Envelope {
+  switch (tool) {
+    case 'get_institutional_investors':
+      return { data: { rows: [], date: undefined, total_net: undefined }, _lineage: { source: 'TWSE', freshness: 'POST_MARKET_TODAY', fetched_at: new Date().toISOString() } };
+    case 'get_abnormal_trading':
+      return { data: { stocks: [] }, _lineage: { source: 'TWSE', freshness: 'POST_MARKET_TODAY', fetched_at: new Date().toISOString() } };
+    case 'get_major_announcements':
+      return { data: { announcements: [] }, _lineage: { source: 'MOPS', freshness: 'POST_MARKET_TODAY', fetched_at: new Date().toISOString() } };
+    default:
+      return { data: {}, _lineage: { source: 'TWSE', freshness: 'POST_MARKET_TODAY', fetched_at: new Date().toISOString() } };
+  }
+}
+
+/** 嘗試呼叫 MCP tool；失敗時回傳 fallback envelope 並記錄警告 */
+async function safeCall(
+  client: McpClient,
+  tool: string,
+  args: Record<string, unknown>,
+  warnings: string[],
+): Promise<Envelope> {
+  try {
+    return await client.call(tool, args);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    warnings.push(`Phase 0 預熱 ${tool} 失敗（資料缺口）：${msg}`);
+    return fallbackEnvelope(tool);
+  }
+}
+
 // ===== 交易日解析 =====
 
 /** 從 get_trading_calendar 資料找 ≤ target 的最大交易日 */
@@ -360,7 +397,7 @@ async function recordOnce(
       const realArgs = tool === 'get_institutional_investors' || tool === 'get_abnormal_trading'
         ? { market: 'tse' }
         : {};
-      const env0 = await client.call(tool, realArgs);
+      const env0 = await safeCall(client, tool, realArgs, warnings);
       p0Tools.push({
         tool,
         args: {}, // simulate 呼叫形狀
@@ -369,9 +406,9 @@ async function recordOnce(
     }
 
     // 3. 錄製 Phase 1 三路徑 + 選股
-    const instEnv = await client.call('get_institutional_investors', { market: 'tse' });
-    const abnEnv = await client.call('get_abnormal_trading', { market: 'tse' });
-    const annEnv = await client.call('get_major_announcements', {});
+    const instEnv = await safeCall(client, 'get_institutional_investors', { market: 'tse' }, warnings);
+    const abnEnv = await safeCall(client, 'get_abnormal_trading', { market: 'tse' }, warnings);
+    const annEnv = await safeCall(client, 'get_major_announcements', {}, warnings);
     const inst = normalizeEnvelope('get_institutional_investors', instEnv, { intraday: false });
     const abn = normalizeEnvelope('get_abnormal_trading', abnEnv, { intraday: false });
     const ann = normalizeEnvelope('get_major_announcements', annEnv, { intraday: false });
