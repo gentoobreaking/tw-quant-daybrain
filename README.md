@@ -38,6 +38,8 @@ npm run cli -- stress --tick-delay 5
 |------|--------|--------|
 | `npm run start` | 單進程部署：交易日自動執行完整流程、非交易日休眠 | **生產使用**（需 MCP_SERVER_BIN + 設定） |
 | `npm run dev` | 同 start，但用 tsx 直接跑原始碼 | 開發時快速啟動 |
+| `./dist/daybrain build` | 編譯 TypeScript / 打包 binary | `npm run build` / `npm run build:binary` 的 binary 等價指令 |
+| `./dist/daybrain test / lint / typecheck` | 執行測試 / lint / 型別檢查 | `npm test` / `npm run lint` / `npm run typecheck` 的 binary 等價指令 |
 | `npm run test:simulate` | 模擬盤：用 fixture 劇本回放一整個交易日（Phase 0→4），看引擎按設計運作 | 改動後驗證引擎行為 |
 | `npm run test:simulate:unit` | 模擬/故障注入單元測試（timeout/data_gap/connection_drop） | 驗證故障處理 |
 | `npm run fixture:record` | 連線 tw-quant-mcp 錄製「最新交易日」fixture 至 `testdata/mcp/<date>.json`（盤中/盤後雙模式） | 交易日盤後跑，讓模擬盤跟上市場 |
@@ -79,6 +81,24 @@ npm run build:binary -- --release   # 加 --minify 縮小
 npm run build
 npm run start
 ```
+
+### 情境 D：單一執行檔直接用（無須 npm）
+
+```bash
+# 編譯 → 打包 binary → 直接執行全部指令
+npm run build:binary
+./dist/daybrain build             # 編譯 TypeScript → dist/
+./dist/daybrain build --binary    # 重新打包 single-file binary（需 bun）
+./dist/daybrain test              # 執行所有單元測試
+./dist/daybrain lint              # 型別檢查 + ESLint
+./dist/daybrain typecheck         # 僅執行 tsc --noEmit 型別檢查
+./dist/daybrain fixture:record    # 錄製最新交易日 fixture
+./dist/daybrain simulate          # 模擬盤
+```
+
+> `./dist/daybrain` 擁有與 `npm run cli --` 相同的指令集合，
+> 打包後的 binary 即可在任何 arm64 macOS 直接執行，
+> 無需安裝 Node.js / npm / Bun。
 
 啟動後依 `config/scheduler.yaml` 時間軸自動執行（非交易日休眠）：
 
