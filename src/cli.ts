@@ -8,11 +8,13 @@ const HELP = `tw-quant-daybrain CLI — 台股當沖決策引擎
 用法：
   npm run cli -- <command> [options]
 
-命令：
-  start           生產部署：交易日自動執行完整流程、非交易日休眠（T005）
-                  （同 npm run start，需 MCP_SERVER_BIN + 設定）
-  dev             同 start，但用 tsx 直接跑原始碼
-  simulate        模擬盤：以 fixture 劇本回放整日 Phase 0→4（T013）
+  命令：
+    start           生產部署：交易日自動執行完整流程、非交易日休眠（T005）
+                    （同 npm run start，需 MCP_SERVER_BIN + 設定）
+    dev             同 start，但用 tsx 直接跑原始碼
+    build           編譯 TypeScript 或打包 binary
+                    （無參數：編譯到 dist/；--binary：打包 dist/daybrain，需 bun）
+    simulate        模擬盤：以 fixture 劇本回放整日 Phase 0→4（T013）
                   --fixture <path>      fixture 檔（預設自動選 testdata/mcp/ 最新日期檔）
                   --fault <mode>        故障注入：timeout|data_gap|connection_drop（預設 none）
   fixture:record  連線 tw-quant-mcp 錄製最新交易日 fixture（盤中/盤後雙模式）
@@ -47,7 +49,9 @@ const HELP = `tw-quant-daybrain CLI — 台股當沖決策引擎
     npm test                       執行所有單元測試
     npm run test:simulate:unit     僅執行模擬日單元測試
     直接跑二進位：
-    ./dist/daybrain fixture:record          # 錄製 fixture（需先 build:binary）
+    ./dist/daybrain build                      # 編譯 TypeScript
+    ./dist/daybrain build --binary             # 打包 binary（需 bun）
+    ./dist/daybrain fixture:record             # 錄製 fixture
     ./dist/daybrain simulate --fixture testdata/mcp/2026-08-19.json
   `;
 
@@ -74,6 +78,11 @@ try {
       const { main } = await import('./index.js');
       await main();
       code = 0;
+      break;
+    }
+    case 'build': {
+      const { execBuild } = await import('./ops/build_cli.js');
+      code = await execBuild(rest);
       break;
     }
     case 'simulate': {

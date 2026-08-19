@@ -19,5 +19,5 @@ ARGS=(--compile --outfile "$OUT" --target=bun-darwin-arm64)
 
 echo "📦 打包 daybrain（$(basename "$BUN") $( "$BUN" --version )）..."
 "$BUN" build ./src/cli.ts "${ARGS[@]}"
-echo "✅ 完成：$OUT（$(ls -lh "$OUT" | awk '{print $5}')）"
-echo "   試跑：$OUT help"
+echo "✅ 完成：${OUT:-dist/daybrain}（$(ls -lh "${OUT:-dist/daybrain}" | awk '{print $5}')）"
+echo "   試跑：${OUT:-dist/daybrain} help"
