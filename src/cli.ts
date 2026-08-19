@@ -14,6 +14,10 @@ const HELP = `tw-quant-daybrain CLI — 台股當沖決策引擎
     dev             同 start，但用 tsx 直接跑原始碼
     build           編譯 TypeScript 或打包 binary
                     （無參數：編譯到 dist/；--binary：打包 dist/daybrain，需 bun）
+    test            執行所有單元測試
+                    （對應 npm test；需 node --test + tsx）
+    lint            型別檢查 + ESLint
+    typecheck       僅執行 tsc --noEmit 型別檢查
     simulate        模擬盤：以 fixture 劇本回放整日 Phase 0→4（T013）
                   --fixture <path>      fixture 檔（預設自動選 testdata/mcp/ 最新日期檔）
                   --fault <mode>        故障注入：timeout|data_gap|connection_drop（預設 none）
@@ -48,9 +52,12 @@ const HELP = `tw-quant-daybrain CLI — 台股當沖決策引擎
     npm run lint                   型別檢查 + ESLint
     npm test                       執行所有單元測試
     npm run test:simulate:unit     僅執行模擬日單元測試
-    直接跑二進位：
+    直接跑二進位（等同 npm run ...）：
     ./dist/daybrain build                      # 編譯 TypeScript
     ./dist/daybrain build --binary             # 打包 binary（需 bun）
+    ./dist/daybrain test                       # 執行單元測試
+    ./dist/daybrain lint                       # 型別檢查 + ESLint
+    ./dist/daybrain typecheck                  # 僅型別檢查
     ./dist/daybrain fixture:record             # 錄製 fixture
     ./dist/daybrain simulate --fixture testdata/mcp/2026-08-19.json
   `;
@@ -83,6 +90,21 @@ try {
     case 'build': {
       const { execBuild } = await import('./ops/build_cli.js');
       code = await execBuild(rest);
+      break;
+    }
+    case 'test': {
+      const { execTest } = await import('./ops/build_cli.js');
+      code = await execTest(rest);
+      break;
+    }
+    case 'lint': {
+      const { execLint } = await import('./ops/build_cli.js');
+      code = await execLint(rest);
+      break;
+    }
+    case 'typecheck': {
+      const { execTypecheck } = await import('./ops/build_cli.js');
+      code = await execTypecheck(rest);
       break;
     }
     case 'simulate': {
