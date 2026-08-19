@@ -33,13 +33,23 @@ const HELP = `tw-quant-daybrain CLI — 台股當沖決策引擎
   wfo             Walk-Forward 滾動驗證（T024，需 testdata/historical_1m）
   help            顯示本說明
 
-範例：
-  npm run cli -- simulate
-  npm run cli -- simulate --fixture testdata/mcp/2026-08-13.json --fault timeout
-  npm run cli -- fixture:record
-  npm run cli -- stress --tick-delay 5
-  npm run cli -- experiment --param volume_surge_threshold --values 3.0,2.5,3.5
-`;
+  範例：
+    npm run cli -- simulate
+    npm run cli -- simulate --fixture testdata/mcp/2026-08-13.json --fault timeout
+    npm run cli -- fixture:record
+    npm run cli -- stress --tick-delay 5
+    npm run cli -- experiment --param volume_surge_threshold --values 3.0,2.5,3.5
+
+  開發/部署：
+    npm run build                  編譯 TypeScript → dist/
+    npm run build:binary           打包單檔二進位 → dist/daybrain（需 bun）
+    npm run lint                   型別檢查 + ESLint
+    npm test                       執行所有單元測試
+    npm run test:simulate:unit     僅執行模擬日單元測試
+    直接跑二進位：
+    ./dist/daybrain fixture:record          # 錄製 fixture（需先 build:binary）
+    ./dist/daybrain simulate --fixture testdata/mcp/2026-08-19.json
+  `;
 
 const args = process.argv.slice(2);
 const cmd = args[0] ?? 'help';
