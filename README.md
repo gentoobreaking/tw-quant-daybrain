@@ -6,6 +6,7 @@
 - **MCP**：`@modelcontextprotocol/sdk`（stdio，已實作連線層）
 - **設定**：`config/*.yaml` + 環境變數覆寫（§17.1 為唯一真值）
 - **日誌**：結構化 JSON（事件型，含 ts/type），`LOG_DIR` 可設定
+- **後端資料**：本地 CSV 歷史資料 + [tw-quant-db](https://github.com/gentoobreaking/tw-quant-db) 共享 PostgreSQL（供 tw-quant-signal 與 tw-quant-pickup 使用）
 - **時區**：固定 `Asia/Taipei`，禁止本機時區隱式轉換
 
 > **給誰看**：本 README 是 **CLI / 使用者** 導向。想把 DayBrain 模組嵌進
